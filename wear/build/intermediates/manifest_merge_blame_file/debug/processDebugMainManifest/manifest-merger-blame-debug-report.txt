@@ -1,0 +1,226 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="com.rsilverst.gimmeabeat"
+4    android:versionCode="1"
+5    android:versionName="1.0" >
+6
+7    <uses-sdk
+7-->INJECTED
+8        android:minSdkVersion="33"
+8-->INJECTED
+9        android:targetSdkVersion="37" />
+9-->INJECTED
+10
+11    <uses-feature android:name="android.hardware.type.watch" />
+11-->/Users/bobsil/AndroidStudioProjects/GimmeABeat/wear/src/main/AndroidManifest.xml:4:5-64
+11-->/Users/bobsil/AndroidStudioProjects/GimmeABeat/wear/src/main/AndroidManifest.xml:4:19-61
+12
+13    <uses-permission android:name="android.permission.BODY_SENSORS" />
+13-->/Users/bobsil/AndroidStudioProjects/GimmeABeat/wear/src/main/AndroidManifest.xml:6:5-71
+13-->/Users/bobsil/AndroidStudioProjects/GimmeABeat/wear/src/main/AndroidManifest.xml:6:22-68
+14    <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
+14-->/Users/bobsil/AndroidStudioProjects/GimmeABeat/wear/src/main/AndroidManifest.xml:7:5-81
+14-->/Users/bobsil/AndroidStudioProjects/GimmeABeat/wear/src/main/AndroidManifest.xml:7:22-78
+15    <uses-permission android:name="android.permission.WAKE_LOCK" />
+15-->/Users/bobsil/AndroidStudioProjects/GimmeABeat/wear/src/main/AndroidManifest.xml:8:5-68
+15-->/Users/bobsil/AndroidStudioProjects/GimmeABeat/wear/src/main/AndroidManifest.xml:8:22-65
+16
+17    <queries>
+17-->[androidx.health:health-services-client:1.1.0-rc02] /Users/bobsil/.gradle/caches/9.5.0/transforms/3832dba6cd2466f9f8f7a5807d79a915/transformed/health-services-client-1.1.0-rc02/AndroidManifest.xml:19:5-21:15
+18        <package android:name="com.google.android.wearable.healthservices" />
+18-->[androidx.health:health-services-client:1.1.0-rc02] /Users/bobsil/.gradle/caches/9.5.0/transforms/3832dba6cd2466f9f8f7a5807d79a915/transformed/health-services-client-1.1.0-rc02/AndroidManifest.xml:20:9-78
+18-->[androidx.health:health-services-client:1.1.0-rc02] /Users/bobsil/.gradle/caches/9.5.0/transforms/3832dba6cd2466f9f8f7a5807d79a915/transformed/health-services-client-1.1.0-rc02/AndroidManifest.xml:20:18-75
+19    </queries>
+20
+21    <permission
+21-->[androidx.core:core:1.19.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/ea9a5aebe0659c19c8c248ef9d8704c9/transformed/core-1.19.0/AndroidManifest.xml:22:5-24:47
+22        android:name="com.rsilverst.gimmeabeat.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+22-->[androidx.core:core:1.19.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/ea9a5aebe0659c19c8c248ef9d8704c9/transformed/core-1.19.0/AndroidManifest.xml:23:9-81
+23        android:protectionLevel="signature" />
+23-->[androidx.core:core:1.19.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/ea9a5aebe0659c19c8c248ef9d8704c9/transformed/core-1.19.0/AndroidManifest.xml:24:9-44
+24
+25    <uses-permission android:name="com.rsilverst.gimmeabeat.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+25-->[androidx.core:core:1.19.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/ea9a5aebe0659c19c8c248ef9d8704c9/transformed/core-1.19.0/AndroidManifest.xml:26:5-97
+25-->[androidx.core:core:1.19.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/ea9a5aebe0659c19c8c248ef9d8704c9/transformed/core-1.19.0/AndroidManifest.xml:26:22-94
+26
+27    <application
+27-->/Users/bobsil/AndroidStudioProjects/GimmeABeat/wear/src/main/AndroidManifest.xml:10:5-35:19
+28        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+28-->[androidx.core:core:1.19.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/ea9a5aebe0659c19c8c248ef9d8704c9/transformed/core-1.19.0/AndroidManifest.xml:28:18-86
+29        android:debuggable="true"
+30        android:extractNativeLibs="false"
+30-->INJECTED
+31        android:icon="@mipmap/ic_launcher"
+31-->/Users/bobsil/AndroidStudioProjects/GimmeABeat/wear/src/main/AndroidManifest.xml:11:9-43
+32        android:label="@string/app_name"
+32-->/Users/bobsil/AndroidStudioProjects/GimmeABeat/wear/src/main/AndroidManifest.xml:12:9-41
+33        android:roundIcon="@mipmap/ic_launcher_round"
+33-->/Users/bobsil/AndroidStudioProjects/GimmeABeat/wear/src/main/AndroidManifest.xml:13:9-54
+34        android:supportsRtl="true"
+34-->/Users/bobsil/AndroidStudioProjects/GimmeABeat/wear/src/main/AndroidManifest.xml:14:9-35
+35        android:testOnly="true"
+36        android:theme="@android:style/Theme.DeviceDefault" >
+36-->/Users/bobsil/AndroidStudioProjects/GimmeABeat/wear/src/main/AndroidManifest.xml:15:9-59
+37        <uses-library
+37-->/Users/bobsil/AndroidStudioProjects/GimmeABeat/wear/src/main/AndroidManifest.xml:17:9-19:39
+38            android:name="com.google.android.wearable"
+38-->/Users/bobsil/AndroidStudioProjects/GimmeABeat/wear/src/main/AndroidManifest.xml:18:13-55
+39            android:required="true" />
+39-->/Users/bobsil/AndroidStudioProjects/GimmeABeat/wear/src/main/AndroidManifest.xml:19:13-36
+40
+41        <meta-data
+41-->/Users/bobsil/AndroidStudioProjects/GimmeABeat/wear/src/main/AndroidManifest.xml:21:9-23:36
+42            android:name="com.google.android.wearable.standalone"
+42-->/Users/bobsil/AndroidStudioProjects/GimmeABeat/wear/src/main/AndroidManifest.xml:22:13-66
+43            android:value="true" />
+43-->/Users/bobsil/AndroidStudioProjects/GimmeABeat/wear/src/main/AndroidManifest.xml:23:13-33
+44
+45        <activity
+45-->/Users/bobsil/AndroidStudioProjects/GimmeABeat/wear/src/main/AndroidManifest.xml:25:9-34:20
+46            android:name="com.rsilverst.gimmeabeat.wear.MainActivity"
+46-->/Users/bobsil/AndroidStudioProjects/GimmeABeat/wear/src/main/AndroidManifest.xml:26:13-41
+47            android:exported="true"
+47-->/Users/bobsil/AndroidStudioProjects/GimmeABeat/wear/src/main/AndroidManifest.xml:27:13-36
+48            android:taskAffinity=""
+48-->/Users/bobsil/AndroidStudioProjects/GimmeABeat/wear/src/main/AndroidManifest.xml:28:13-36
+49            android:theme="@android:style/Theme.DeviceDefault" >
+49-->/Users/bobsil/AndroidStudioProjects/GimmeABeat/wear/src/main/AndroidManifest.xml:29:13-63
+50            <intent-filter>
+50-->/Users/bobsil/AndroidStudioProjects/GimmeABeat/wear/src/main/AndroidManifest.xml:30:13-33:29
+51                <action android:name="android.intent.action.MAIN" />
+51-->/Users/bobsil/AndroidStudioProjects/GimmeABeat/wear/src/main/AndroidManifest.xml:31:17-69
+51-->/Users/bobsil/AndroidStudioProjects/GimmeABeat/wear/src/main/AndroidManifest.xml:31:25-66
+52
+53                <category android:name="android.intent.category.LAUNCHER" />
+53-->/Users/bobsil/AndroidStudioProjects/GimmeABeat/wear/src/main/AndroidManifest.xml:32:17-77
+53-->/Users/bobsil/AndroidStudioProjects/GimmeABeat/wear/src/main/AndroidManifest.xml:32:27-74
+54            </intent-filter>
+55        </activity>
+56
+57        <uses-library
+57-->[androidx.wear.compose:compose-foundation:1.6.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/1964e2a1c98cbf7f406816421da0bffd/transformed/compose-foundation-1.6.0/AndroidManifest.xml:23:9-25:40
+58            android:name="wear-sdk"
+58-->[androidx.wear.compose:compose-foundation:1.6.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/1964e2a1c98cbf7f406816421da0bffd/transformed/compose-foundation-1.6.0/AndroidManifest.xml:24:13-36
+59            android:required="false" />
+59-->[androidx.wear.compose:compose-foundation:1.6.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/1964e2a1c98cbf7f406816421da0bffd/transformed/compose-foundation-1.6.0/AndroidManifest.xml:25:13-37
+60
+61        <activity
+61-->[com.google.android.gms:play-services-base:18.5.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/513b0eccf26e336128aebc9d64984a05/transformed/play-services-base-18.5.0/AndroidManifest.xml:5:9-173
+62            android:name="com.google.android.gms.common.api.GoogleApiActivity"
+62-->[com.google.android.gms:play-services-base:18.5.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/513b0eccf26e336128aebc9d64984a05/transformed/play-services-base-18.5.0/AndroidManifest.xml:5:19-85
+63            android:exported="false"
+63-->[com.google.android.gms:play-services-base:18.5.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/513b0eccf26e336128aebc9d64984a05/transformed/play-services-base-18.5.0/AndroidManifest.xml:5:146-170
+64            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+64-->[com.google.android.gms:play-services-base:18.5.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/513b0eccf26e336128aebc9d64984a05/transformed/play-services-base-18.5.0/AndroidManifest.xml:5:86-145
+65
+66        <service
+66-->[androidx.health:health-services-client:1.1.0-rc02] /Users/bobsil/.gradle/caches/9.5.0/transforms/3832dba6cd2466f9f8f7a5807d79a915/transformed/health-services-client-1.1.0-rc02/AndroidManifest.xml:24:9-31:19
+67            android:name="androidx.health.services.client.VersionApiService"
+67-->[androidx.health:health-services-client:1.1.0-rc02] /Users/bobsil/.gradle/caches/9.5.0/transforms/3832dba6cd2466f9f8f7a5807d79a915/transformed/health-services-client-1.1.0-rc02/AndroidManifest.xml:25:13-77
+68            android:exported="true"
+68-->[androidx.health:health-services-client:1.1.0-rc02] /Users/bobsil/.gradle/caches/9.5.0/transforms/3832dba6cd2466f9f8f7a5807d79a915/transformed/health-services-client-1.1.0-rc02/AndroidManifest.xml:26:13-36
+69            android:permission="com.google.android.wearable.healthservices.permission.PASSIVE_DATA_BINDING" >
+69-->[androidx.health:health-services-client:1.1.0-rc02] /Users/bobsil/.gradle/caches/9.5.0/transforms/3832dba6cd2466f9f8f7a5807d79a915/transformed/health-services-client-1.1.0-rc02/AndroidManifest.xml:27:13-108
+70            <intent-filter>
+70-->[androidx.health:health-services-client:1.1.0-rc02] /Users/bobsil/.gradle/caches/9.5.0/transforms/3832dba6cd2466f9f8f7a5807d79a915/transformed/health-services-client-1.1.0-rc02/AndroidManifest.xml:28:13-30:29
+71                <action android:name="hs.versionclient.BIND" />
+71-->[androidx.health:health-services-client:1.1.0-rc02] /Users/bobsil/.gradle/caches/9.5.0/transforms/3832dba6cd2466f9f8f7a5807d79a915/transformed/health-services-client-1.1.0-rc02/AndroidManifest.xml:29:17-64
+71-->[androidx.health:health-services-client:1.1.0-rc02] /Users/bobsil/.gradle/caches/9.5.0/transforms/3832dba6cd2466f9f8f7a5807d79a915/transformed/health-services-client-1.1.0-rc02/AndroidManifest.xml:29:25-61
+72            </intent-filter>
+73        </service>
+74
+75        <activity
+75-->[androidx.compose.ui:ui-tooling-android:1.10.4] /Users/bobsil/.gradle/caches/9.5.0/transforms/7f471ecc53acd4fab724effd64c3a6e7/transformed/ui-tooling/AndroidManifest.xml:23:9-25:39
+76            android:name="androidx.compose.ui.tooling.PreviewActivity"
+76-->[androidx.compose.ui:ui-tooling-android:1.10.4] /Users/bobsil/.gradle/caches/9.5.0/transforms/7f471ecc53acd4fab724effd64c3a6e7/transformed/ui-tooling/AndroidManifest.xml:24:13-71
+77            android:exported="true" />
+77-->[androidx.compose.ui:ui-tooling-android:1.10.4] /Users/bobsil/.gradle/caches/9.5.0/transforms/7f471ecc53acd4fab724effd64c3a6e7/transformed/ui-tooling/AndroidManifest.xml:25:13-36
+78
+79        <provider
+79-->[androidx.emoji2:emoji2:1.4.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/4b43ee8318ac515c8489eec68ac01975/transformed/emoji2-1.4.0/AndroidManifest.xml:24:9-32:20
+80            android:name="androidx.startup.InitializationProvider"
+80-->[androidx.emoji2:emoji2:1.4.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/4b43ee8318ac515c8489eec68ac01975/transformed/emoji2-1.4.0/AndroidManifest.xml:25:13-67
+81            android:authorities="com.rsilverst.gimmeabeat.androidx-startup"
+81-->[androidx.emoji2:emoji2:1.4.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/4b43ee8318ac515c8489eec68ac01975/transformed/emoji2-1.4.0/AndroidManifest.xml:26:13-68
+82            android:exported="false" >
+82-->[androidx.emoji2:emoji2:1.4.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/4b43ee8318ac515c8489eec68ac01975/transformed/emoji2-1.4.0/AndroidManifest.xml:27:13-37
+83            <meta-data
+83-->[androidx.emoji2:emoji2:1.4.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/4b43ee8318ac515c8489eec68ac01975/transformed/emoji2-1.4.0/AndroidManifest.xml:29:13-31:52
+84                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+84-->[androidx.emoji2:emoji2:1.4.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/4b43ee8318ac515c8489eec68ac01975/transformed/emoji2-1.4.0/AndroidManifest.xml:30:17-75
+85                android:value="androidx.startup" />
+85-->[androidx.emoji2:emoji2:1.4.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/4b43ee8318ac515c8489eec68ac01975/transformed/emoji2-1.4.0/AndroidManifest.xml:31:17-49
+86            <meta-data
+86-->[androidx.lifecycle:lifecycle-process:2.10.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/1ad15b5966cbb50f60950f3a97517856/transformed/lifecycle-process-2.10.0/AndroidManifest.xml:29:13-31:52
+87                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+87-->[androidx.lifecycle:lifecycle-process:2.10.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/1ad15b5966cbb50f60950f3a97517856/transformed/lifecycle-process-2.10.0/AndroidManifest.xml:30:17-78
+88                android:value="androidx.startup" />
+88-->[androidx.lifecycle:lifecycle-process:2.10.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/1ad15b5966cbb50f60950f3a97517856/transformed/lifecycle-process-2.10.0/AndroidManifest.xml:31:17-49
+89            <meta-data
+89-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/ad8963eedc5966f4d05debfe92c507f6/transformed/profileinstaller-1.4.0/AndroidManifest.xml:29:13-31:52
+90                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
+90-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/ad8963eedc5966f4d05debfe92c507f6/transformed/profileinstaller-1.4.0/AndroidManifest.xml:30:17-85
+91                android:value="androidx.startup" />
+91-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/ad8963eedc5966f4d05debfe92c507f6/transformed/profileinstaller-1.4.0/AndroidManifest.xml:31:17-49
+92        </provider>
+93
+94        <uses-library
+94-->[androidx.window:window:1.5.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/63456ba8cd3672fdee1214da57964293/transformed/window-1.5.0/AndroidManifest.xml:23:9-25:40
+95            android:name="androidx.window.extensions"
+95-->[androidx.window:window:1.5.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/63456ba8cd3672fdee1214da57964293/transformed/window-1.5.0/AndroidManifest.xml:24:13-54
+96            android:required="false" />
+96-->[androidx.window:window:1.5.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/63456ba8cd3672fdee1214da57964293/transformed/window-1.5.0/AndroidManifest.xml:25:13-37
+97        <uses-library
+97-->[androidx.window:window:1.5.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/63456ba8cd3672fdee1214da57964293/transformed/window-1.5.0/AndroidManifest.xml:26:9-28:40
+98            android:name="androidx.window.sidecar"
+98-->[androidx.window:window:1.5.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/63456ba8cd3672fdee1214da57964293/transformed/window-1.5.0/AndroidManifest.xml:27:13-51
+99            android:required="false" />
+99-->[androidx.window:window:1.5.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/63456ba8cd3672fdee1214da57964293/transformed/window-1.5.0/AndroidManifest.xml:28:13-37
+100
+101        <meta-data
+101-->[com.google.android.gms:play-services-basement:18.4.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/41a747d9bb36c80efac31b8315f3170b/transformed/play-services-basement-18.4.0/AndroidManifest.xml:6:9-122
+102            android:name="com.google.android.gms.version"
+102-->[com.google.android.gms:play-services-basement:18.4.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/41a747d9bb36c80efac31b8315f3170b/transformed/play-services-basement-18.4.0/AndroidManifest.xml:6:20-65
+103            android:value="@integer/google_play_services_version" />
+103-->[com.google.android.gms:play-services-basement:18.4.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/41a747d9bb36c80efac31b8315f3170b/transformed/play-services-basement-18.4.0/AndroidManifest.xml:6:66-119
+104
+105        <receiver
+105-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/ad8963eedc5966f4d05debfe92c507f6/transformed/profileinstaller-1.4.0/AndroidManifest.xml:34:9-52:20
+106            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+106-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/ad8963eedc5966f4d05debfe92c507f6/transformed/profileinstaller-1.4.0/AndroidManifest.xml:35:13-76
+107            android:directBootAware="false"
+107-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/ad8963eedc5966f4d05debfe92c507f6/transformed/profileinstaller-1.4.0/AndroidManifest.xml:36:13-44
+108            android:enabled="true"
+108-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/ad8963eedc5966f4d05debfe92c507f6/transformed/profileinstaller-1.4.0/AndroidManifest.xml:37:13-35
+109            android:exported="true"
+109-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/ad8963eedc5966f4d05debfe92c507f6/transformed/profileinstaller-1.4.0/AndroidManifest.xml:38:13-36
+110            android:permission="android.permission.DUMP" >
+110-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/ad8963eedc5966f4d05debfe92c507f6/transformed/profileinstaller-1.4.0/AndroidManifest.xml:39:13-57
+111            <intent-filter>
+111-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/ad8963eedc5966f4d05debfe92c507f6/transformed/profileinstaller-1.4.0/AndroidManifest.xml:40:13-42:29
+112                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
+112-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/ad8963eedc5966f4d05debfe92c507f6/transformed/profileinstaller-1.4.0/AndroidManifest.xml:41:17-91
+112-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/ad8963eedc5966f4d05debfe92c507f6/transformed/profileinstaller-1.4.0/AndroidManifest.xml:41:25-88
+113            </intent-filter>
+114            <intent-filter>
+114-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/ad8963eedc5966f4d05debfe92c507f6/transformed/profileinstaller-1.4.0/AndroidManifest.xml:43:13-45:29
+115                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
+115-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/ad8963eedc5966f4d05debfe92c507f6/transformed/profileinstaller-1.4.0/AndroidManifest.xml:44:17-85
+115-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/ad8963eedc5966f4d05debfe92c507f6/transformed/profileinstaller-1.4.0/AndroidManifest.xml:44:25-82
+116            </intent-filter>
+117            <intent-filter>
+117-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/ad8963eedc5966f4d05debfe92c507f6/transformed/profileinstaller-1.4.0/AndroidManifest.xml:46:13-48:29
+118                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
+118-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/ad8963eedc5966f4d05debfe92c507f6/transformed/profileinstaller-1.4.0/AndroidManifest.xml:47:17-88
+118-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/ad8963eedc5966f4d05debfe92c507f6/transformed/profileinstaller-1.4.0/AndroidManifest.xml:47:25-85
+119            </intent-filter>
+120            <intent-filter>
+120-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/ad8963eedc5966f4d05debfe92c507f6/transformed/profileinstaller-1.4.0/AndroidManifest.xml:49:13-51:29
+121                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
+121-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/ad8963eedc5966f4d05debfe92c507f6/transformed/profileinstaller-1.4.0/AndroidManifest.xml:50:17-95
+121-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/bobsil/.gradle/caches/9.5.0/transforms/ad8963eedc5966f4d05debfe92c507f6/transformed/profileinstaller-1.4.0/AndroidManifest.xml:50:25-92
+122            </intent-filter>
+123        </receiver>
+124    </application>
+125
+126</manifest>

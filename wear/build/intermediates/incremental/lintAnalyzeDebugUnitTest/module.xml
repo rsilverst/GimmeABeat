@@ -1,0 +1,20 @@
+<lint-module
+    format="1"
+    dir="/Users/bobsil/AndroidStudioProjects/GimmeABeat/wear"
+    name=":wear"
+    type="APP"
+    maven="GimmeABeat:wear:unspecified"
+    agpVersion="9.3.0-alpha11"
+    buildFolder="build"
+    bootClassPath="/Users/bobsil/Library/Android/sdk/platforms/android-37.0/android.jar:/Users/bobsil/Library/Android/sdk/build-tools/36.0.0/core-lambda-stubs.jar"
+    javaSourceLevel="11"
+    compileTarget="android-37.0"
+    neverShrinking="true"
+    highlightGradualR8Api="false">
+  <lintOptions
+      abortOnError="true"
+      absolutePaths="true"
+      checkReleaseBuilds="true"
+      explainIssues="true"/>
+  <variant name="debug"/>
+</lint-module>
