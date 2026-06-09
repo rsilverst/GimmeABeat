@@ -1,15 +1,26 @@
+# Build artifacts
 *.iml
 .gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
-.DS_Store
 /build
+**/build
 /captures
 .externalNativeBuild
 .cxx
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# Local config
 local.properties
+/local.properties
+*.keystore
+*.jks
+
+# IDE — Android Studio / IntelliJ
+/.idea/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
