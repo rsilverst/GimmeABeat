@@ -1,8 +1,0 @@
-com.rsilverst.gimmeabeat.wear-pngs-0 /Users/bobsil/AndroidStudioProjects/GimmeABeat/wear/build/generated/res/pngs/debug
-com.rsilverst.gimmeabeat.wear-updated_navigation_xml-1 /Users/bobsil/AndroidStudioProjects/GimmeABeat/wear/build/generated/updated_navigation_xml/debug
-com.rsilverst.gimmeabeat.wear-packageDebugResources-2 /Users/bobsil/AndroidStudioProjects/GimmeABeat/wear/build/intermediates/incremental/debug/packageDebugResources/merged.dir
-com.rsilverst.gimmeabeat.wear-packageDebugResources-3 /Users/bobsil/AndroidStudioProjects/GimmeABeat/wear/build/intermediates/incremental/debug/packageDebugResources/stripped.dir
-com.rsilverst.gimmeabeat.wear-debug-4 /Users/bobsil/AndroidStudioProjects/GimmeABeat/wear/build/intermediates/merged_res/debug/mergeDebugResources
-com.rsilverst.gimmeabeat.wear-debug-5 /Users/bobsil/AndroidStudioProjects/GimmeABeat/wear/src/debug/res
-com.rsilverst.gimmeabeat.wear-main-6 /Users/bobsil/AndroidStudioProjects/GimmeABeat/wear/src/main/res
-gradleHome-0 /Users/bobsil/.gradle

@@ -30,9 +30,13 @@ class GetSongBpmClient {
         .build()
         .create(GetSongBpmApi::class.java)
 
+    /** Cache key: single BPM value (genre filtering is applied client-side after lookup). */
+    private val perBpmCache = java.util.concurrent.ConcurrentHashMap<Int, List<BpmCandidate>>()
+
     /**
      * Returns candidates near [targetBpm], optionally filtered to artists whose
      * genres include any of [genres] (case-insensitive substring match).
+     * Per-BPM results are cached in-memory for the lifetime of this client.
      */
     suspend fun findCandidates(
         targetBpm: Int,
@@ -45,14 +49,17 @@ class GetSongBpmClient {
             return emptyList()
         }
 
-        val responses = (targetBpm - tolerance..targetBpm + tolerance).mapNotNull { bpm ->
-            runCatching { api.tempo(apiKey, bpm) }
-                .onFailure { Log.w(TAG, "tempo($bpm) failed", it) }
-                .getOrNull()
+        val candidates = (targetBpm - tolerance..targetBpm + tolerance).flatMap { bpm ->
+            perBpmCache.getOrPut(bpm) {
+                runCatching { api.tempo(apiKey, bpm) }
+                    .onFailure { Log.w(TAG, "tempo($bpm) failed", it) }
+                    .getOrNull()
+                    ?.let { (it.tempo ?: it.search).orEmpty() }
+                    ?.mapNotNull { it.toCandidate() }
+                    .orEmpty()
+            }
         }
 
-        val raw = responses.flatMap { (it.tempo ?: it.search).orEmpty() }
-        val candidates = raw.mapNotNull { it.toCandidate() }
         return if (genres.isEmpty()) candidates else candidates.filter { c ->
             c.genres.any { g -> genres.any { wanted -> g.contains(wanted, ignoreCase = true) } }
         }

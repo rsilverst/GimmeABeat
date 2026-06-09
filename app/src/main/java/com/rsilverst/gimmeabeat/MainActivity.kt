@@ -1,7 +1,10 @@
 package com.rsilverst.gimmeabeat
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -42,6 +45,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rsilverst.gimmeabeat.ui.theme.GimmeABeatTheme
 
@@ -53,6 +57,14 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         viewModel.handleAuthResult(result.data)
+    }
+
+    private val notificationsLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { _ ->
+        // Whether granted or not, kick off auto mode. The service runs either way;
+        // a denied notification permission just means no status bar icon.
+        viewModel.startAuto()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -67,9 +79,23 @@ class MainActivity : ComponentActivity() {
                         onConnectSpotify = {
                             authLauncher.launch(viewModel.getAuthorizationIntent())
                         },
+                        onStartAuto = { requestNotificationsThenStart() },
                     )
                 }
             }
+        }
+    }
+
+    private fun requestNotificationsThenStart() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val granted = ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.POST_NOTIFICATIONS,
+            ) == PackageManager.PERMISSION_GRANTED
+            if (granted) viewModel.startAuto()
+            else notificationsLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            viewModel.startAuto()
         }
     }
 }
@@ -78,6 +104,7 @@ class MainActivity : ComponentActivity() {
 fun HomeScreen(
     viewModel: MainViewModel,
     onConnectSpotify: () -> Unit,
+    onStartAuto: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -88,6 +115,10 @@ fun HomeScreen(
     val nowPlaying by viewModel.nowPlaying.collectAsStateWithLifecycle()
     val targetBpm by viewModel.targetBpm.collectAsStateWithLifecycle()
     val selectedGenre by viewModel.selectedGenre.collectAsStateWithLifecycle()
+    val multiplier by viewModel.multiplier.collectAsStateWithLifecycle()
+    val autoActive by viewModel.autoActive.collectAsStateWithLifecycle()
+    val autoStatus by viewModel.autoStatus.collectAsStateWithLifecycle()
+    val autoNowPlaying by viewModel.autoNowPlaying.collectAsStateWithLifecycle()
 
     Column(
         modifier = modifier
@@ -106,7 +137,6 @@ fun HomeScreen(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary,
             )
-            Spacer(Modifier.height(0.dp))
             Text(" bpm", style = MaterialTheme.typography.bodyLarge)
         }
         if (heartRate == null) {
@@ -134,13 +164,32 @@ fun HomeScreen(
 
             HorizontalDivider()
 
-            // --- Pick a song matching BPM ---
-            Text("Find a song", style = MaterialTheme.typography.titleMedium)
+            // --- Settings ---
+            Text("Settings", style = MaterialTheme.typography.titleMedium)
             GenreDropdown(
                 selected = selectedGenre,
                 onSelect = { viewModel.setGenre(it) },
             )
+            Text(
+                text = "Song BPM = HR × ${"%.1f".format(multiplier)}",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Slider(
+                value = multiplier,
+                onValueChange = { viewModel.setMultiplier((it * 10).toInt() / 10f) },
+                valueRange = 0.5f..2.0f,
+                steps = 14,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                text = "1.0× matches HR. 2.0× is typical for running cadence.",
+                style = MaterialTheme.typography.bodySmall,
+            )
 
+            HorizontalDivider()
+
+            // --- Manual pick ---
+            Text("Manual pick", style = MaterialTheme.typography.titleMedium)
             Text(
                 text = "Target BPM: $targetBpm",
                 style = MaterialTheme.typography.bodyMedium,
@@ -149,7 +198,6 @@ fun HomeScreen(
                 value = targetBpm.toFloat(),
                 onValueChange = { viewModel.setTargetBpm(it.toInt()) },
                 valueRange = 60f..200f,
-                steps = 0,
                 modifier = Modifier.fillMaxWidth(),
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -162,21 +210,33 @@ fun HomeScreen(
                     }
                 }
             }
-            OutlinedButton(onClick = { viewModel.playTestTrack() }) {
-                Text("Play test track")
-            }
-
             nowPlaying?.let {
-                Text(
-                    text = "Now: $it",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium,
-                )
+                Text("Now: $it", style = MaterialTheme.typography.bodyMedium)
             }
-        }
+            status?.let {
+                Text(it, style = MaterialTheme.typography.bodyMedium)
+            }
 
-        status?.let {
-            Text(it, style = MaterialTheme.typography.bodyMedium)
+            HorizontalDivider()
+
+            // --- Auto mode ---
+            Text("Auto mode", style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = "Continuously picks new songs matching live HR. Runs as a " +
+                    "background service so it survives screen-off.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            if (autoActive) {
+                Button(onClick = { viewModel.stopAuto() }) { Text("Stop auto") }
+            } else {
+                Button(onClick = onStartAuto) { Text("Start auto") }
+            }
+            autoNowPlaying?.let {
+                Text("Auto-now: $it", style = MaterialTheme.typography.bodyMedium)
+            }
+            autoStatus?.let {
+                Text(it, style = MaterialTheme.typography.bodyMedium)
+            }
         }
 
         Spacer(Modifier.height(8.dp))

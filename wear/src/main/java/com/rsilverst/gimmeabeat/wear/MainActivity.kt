@@ -1,35 +1,74 @@
 package com.rsilverst.gimmeabeat.wear
 
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.activity.viewModels
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.core.content.ContextCompat
 import com.rsilverst.gimmeabeat.wear.ui.HeartRateScreen
 import com.rsilverst.gimmeabeat.wear.ui.theme.GimmeABeatWearTheme
 
 class MainActivity : ComponentActivity() {
 
-    private val viewModel: HeartRateViewModel by viewModels { HeartRateViewModel.Factory }
-
     private val requestPermissions = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { results ->
-        viewModel.onPermissionResult(results.values.all { it })
+        permissionsGranted.value = results.values.all { it }
+        if (permissionsGranted.value) startTracking()
     }
+
+    private val permissionsGranted = mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        permissionsGranted.value = REQUIRED_PERMISSIONS.all { p ->
+            ContextCompat.checkSelfPermission(this, p) == PackageManager.PERMISSION_GRANTED
+        }
         setContent {
             GimmeABeatWearTheme {
+                val tracking by WatchTrackingState.tracking.collectAsState()
+                val hr by WatchTrackingState.heartRate.collectAsState()
+                val status by WatchTrackingState.status.collectAsState()
+                val granted by remember { permissionsGranted }
                 HeartRateScreen(
-                    viewModel = viewModel,
-                    onRequestPermission = {
-                        requestPermissions.launch(HeartRateViewModel.REQUIRED_PERMISSIONS)
+                    tracking = tracking,
+                    heartRate = hr,
+                    status = status,
+                    permissionsGranted = granted,
+                    onRequestPermissions = {
+                        requestPermissions.launch(REQUIRED_PERMISSIONS)
                     },
+                    onStartTracking = { startTracking() },
+                    onStopTracking = { stopTracking() },
                 )
             }
         }
-        viewModel.checkPermission(this)
+    }
+
+    private fun startTracking() {
+        val intent = Intent(this, ExerciseService::class.java)
+        ContextCompat.startForegroundService(this, intent)
+    }
+
+    private fun stopTracking() {
+        val intent = Intent(this, ExerciseService::class.java).apply {
+            action = ExerciseService.ACTION_STOP
+        }
+        startService(intent)
+    }
+
+    companion object {
+        val REQUIRED_PERMISSIONS = arrayOf(
+            Manifest.permission.BODY_SENSORS,
+            "android.permission.health.READ_HEART_RATE",
+        )
     }
 }

@@ -14,10 +14,14 @@ class SongFinder(
     private val spotify: SpotifyClient,
 ) {
 
-    /** Looks up candidates at the target BPM, picks the first that resolves to a Spotify track, plays it. */
+    /**
+     * Looks up candidates at the target BPM, picks the first that resolves to a
+     * Spotify track not in [excludeTrackIds], plays it.
+     */
     suspend fun findAndPlay(
         targetBpm: Int,
         genre: String?,
+        excludeTrackIds: Set<String> = emptySet(),
         tolerance: Int = 5,
     ): FindAndPlayResult {
         val candidates = bpmClient.findCandidates(
@@ -35,7 +39,7 @@ class SongFinder(
                 Log.w(TAG, "spotify search failed for ${candidate.title}", t)
                 null
             }
-            if (track != null) {
+            if (track != null && track.id !in excludeTrackIds) {
                 val result = spotify.playTrack(track.uri)
                 return FindAndPlayResult.Resolved(candidate, track, result)
             }

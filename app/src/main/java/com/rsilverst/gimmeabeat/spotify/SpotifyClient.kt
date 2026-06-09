@@ -44,14 +44,56 @@ class SpotifyClient(
         api.search(token, q).tracks?.items?.firstOrNull()
     }
 
+    /**
+     * Returns the current playback state, or null if Spotify reports 204 (nothing
+     * playing) / errors. A null result is normal when the user has no active device.
+     */
+    suspend fun playbackState(): SpotifyPlaybackState? {
+        val token = auth.getFreshAccessToken(authService) ?: return null
+        return try {
+            val resp = api.playbackState("Bearer $token")
+            if (resp.code() == 204) null else resp.body()
+        } catch (t: retrofit2.HttpException) {
+            val body = runCatching { t.response()?.errorBody()?.string() }.getOrNull()
+            Log.w(TAG, "HTTP ${t.code()} from /me/player: $body")
+            null
+        } catch (t: Throwable) {
+            Log.w(TAG, "playbackState failed", t)
+            null
+        }
+    }
+
     private fun String.escapeForSearch(): String =
         replace("\"", "").replace("\\", "").trim()
 
-    /** Returns true on success. False if no active device or error. */
+    /**
+     * Plays [spotifyUri]. If no device is currently *active*, looks at the user's
+     * available devices and routes playback to the first one. Returns a [PlayResult]
+     * describing the outcome.
+     */
     suspend fun playTrack(spotifyUri: String): PlayResult {
         val token = auth.getFreshAccessToken(authService) ?: return PlayResult.NotAuthorized
-        val resp = api.play("Bearer $token", PlayRequest(uris = listOf(spotifyUri)))
-        if (resp.code() in 200..204) return PlayResult.Playing
+        val body = PlayRequest(uris = listOf(spotifyUri))
+        val first = api.play("Bearer $token", body)
+        if (first.code() in 200..204) return PlayResult.Playing
+        if (first.code() != 404) return classify(first)
+
+        // 404 = no active device. Try to pick one from the available devices.
+        val devices = try {
+            api.devices("Bearer $token").devices
+        } catch (t: Throwable) {
+            Log.w(TAG, "devices lookup failed after 404", t)
+            return PlayResult.NoActiveDevice
+        }
+        val target = devices.firstOrNull { it.is_active }?.id
+            ?: devices.firstOrNull { !it.is_restricted }?.id
+            ?: return PlayResult.NoActiveDevice
+        val retry = api.play("Bearer $token", body, target)
+        if (retry.code() in 200..204) return PlayResult.Playing
+        return classify(retry)
+    }
+
+    private fun classify(resp: retrofit2.Response<Unit>): PlayResult {
         val body = resp.errorBody()?.string().orEmpty()
         Log.w(TAG, "play failed: HTTP ${resp.code()} body=$body")
         return when (resp.code()) {
@@ -65,6 +107,10 @@ class SpotifyClient(
         val token = auth.getFreshAccessToken(authService) ?: return null
         return try {
             block("Bearer $token")
+        } catch (t: retrofit2.HttpException) {
+            val body = runCatching { t.response()?.errorBody()?.string() }.getOrNull()
+            Log.w(TAG, "HTTP ${t.code()} from Spotify: $body")
+            null
         } catch (t: Throwable) {
             Log.w(TAG, "API call failed", t)
             null

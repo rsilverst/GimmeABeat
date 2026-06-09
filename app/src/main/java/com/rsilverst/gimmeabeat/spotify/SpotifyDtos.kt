@@ -49,6 +49,15 @@ data class SpotifyTrack(
     val name: String,
     val uri: String,
     val artists: List<SpotifyArtistRef>,
+    val duration_ms: Long? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class SpotifyPlaybackState(
+    val device: SpotifyDevice?,
+    val is_playing: Boolean,
+    val progress_ms: Long,
+    val item: SpotifyTrack?,
 )
 
 @JsonClass(generateAdapter = true)

@@ -1,5 +1,6 @@
 package com.rsilverst.gimmeabeat.bpm
 
+import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 import retrofit2.http.GET
 import retrofit2.http.Query
@@ -31,8 +32,8 @@ data class TempoResponse(
 
 @JsonClass(generateAdapter = true)
 data class TempoSong(
-    val id: String? = null,
-    val title: String? = null,
+    @Json(name = "song_id") val id: String? = null,
+    @Json(name = "song_title") val title: String? = null,
     val tempo: String? = null,
     val artist: TempoArtist? = null,
 )

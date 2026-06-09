@@ -2,6 +2,7 @@ package com.rsilverst.gimmeabeat
 
 import android.app.Application
 import android.content.Intent
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -13,8 +14,10 @@ import com.rsilverst.gimmeabeat.spotify.SpotifyAuthRepository
 import com.rsilverst.gimmeabeat.spotify.SpotifyClient
 import com.rsilverst.gimmeabeat.spotify.SpotifyUser
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import net.openid.appauth.AuthorizationException
 import net.openid.appauth.AuthorizationResponse
@@ -23,6 +26,8 @@ import net.openid.appauth.AuthorizationService
 private const val TEST_TRACK_URI = "spotify:track:11dFghVXANMlKmJXsNCbNl" // Cut To The Feeling
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
+
+    private val appContext = app.applicationContext
 
     val authRepo = SpotifyAuthRepository(app)
     val authService = AuthorizationService(app)
@@ -44,8 +49,20 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _targetBpm = MutableStateFlow(120)
     val targetBpm: StateFlow<Int> = _targetBpm.asStateFlow()
 
-    private val _selectedGenre = MutableStateFlow<String?>("pop")
-    val selectedGenre: StateFlow<String?> = _selectedGenre.asStateFlow()
+    val multiplier: StateFlow<Float> =
+        Preferences.multiplierFlow(app).stateIn(
+            viewModelScope,
+            SharingStarted.Eagerly,
+            Preferences.DEFAULT_MULTIPLIER,
+        )
+
+    val selectedGenre: StateFlow<String?> =
+        Preferences.genreFlow(app).stateIn(viewModelScope, SharingStarted.Eagerly, "pop")
+
+    /** Auto state lives in [AutoModeState] singleton so the service is the writer. */
+    val autoActive: StateFlow<Boolean> = AutoModeState.active
+    val autoStatus: StateFlow<String?> = AutoModeState.status
+    val autoNowPlaying: StateFlow<String?> = AutoModeState.nowPlaying
 
     init {
         viewModelScope.launch {
@@ -77,7 +94,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun setGenre(genre: String?) {
-        _selectedGenre.value = genre
+        viewModelScope.launch { Preferences.setGenre(appContext, genre) }
+    }
+
+    fun setMultiplier(value: Float) {
+        viewModelScope.launch { Preferences.setMultiplier(appContext, value) }
     }
 
     fun playTestTrack() {
@@ -91,7 +112,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _status.value = "Looking for a song near ${_targetBpm.value} BPM…"
         _nowPlaying.value = null
         viewModelScope.launch {
-            when (val r = songFinder.findAndPlay(_targetBpm.value, _selectedGenre.value)) {
+            when (val r = songFinder.findAndPlay(_targetBpm.value, selectedGenre.value)) {
                 FindAndPlayResult.NoBpmCandidates ->
                     _status.value = "No songs near ${_targetBpm.value} BPM in that genre."
                 FindAndPlayResult.NoSpotifyMatch ->
@@ -105,7 +126,20 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun startAuto() {
+        val intent = Intent(appContext, AutoModeService::class.java)
+        ContextCompat.startForegroundService(appContext, intent)
+    }
+
+    fun stopAuto() {
+        val intent = Intent(appContext, AutoModeService::class.java).apply {
+            action = AutoModeService.ACTION_STOP
+        }
+        appContext.startService(intent)
+    }
+
     fun signOut() {
+        stopAuto()
         authRepo.signOut()
         _status.value = null
         _nowPlaying.value = null

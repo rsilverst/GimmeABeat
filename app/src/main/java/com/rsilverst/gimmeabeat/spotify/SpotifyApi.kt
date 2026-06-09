@@ -18,6 +18,7 @@ interface SpotifyApi {
     suspend fun play(
         @Header("Authorization") auth: String,
         @Body body: PlayRequest,
+        @retrofit2.http.Query("device_id") deviceId: String? = null,
     ): Response<Unit>
 
     @GET("v1/search")
@@ -27,4 +28,9 @@ interface SpotifyApi {
         @retrofit2.http.Query("type") type: String = "track",
         @retrofit2.http.Query("limit") limit: Int = 5,
     ): SpotifySearchResponse
+
+    @GET("v1/me/player")
+    suspend fun playbackState(
+        @Header("Authorization") auth: String,
+    ): Response<SpotifyPlaybackState>
 }
