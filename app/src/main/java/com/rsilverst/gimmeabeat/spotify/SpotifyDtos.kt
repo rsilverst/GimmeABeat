@@ -50,6 +50,21 @@ data class SpotifyTrack(
     val uri: String,
     val artists: List<SpotifyArtistRef>,
     val duration_ms: Long? = null,
+    val album: SpotifyAlbumRef? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class SpotifyAlbumRef(
+    val id: String? = null,
+    val name: String? = null,
+    val images: List<SpotifyImage> = emptyList(),
+)
+
+@JsonClass(generateAdapter = true)
+data class SpotifyImage(
+    val url: String,
+    val width: Int? = null,
+    val height: Int? = null,
 )
 
 @JsonClass(generateAdapter = true)

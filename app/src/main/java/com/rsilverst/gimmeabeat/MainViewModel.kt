@@ -43,8 +43,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _status = MutableStateFlow<String?>(null)
     val status: StateFlow<String?> = _status.asStateFlow()
 
-    private val _nowPlaying = MutableStateFlow<String?>(null)
-    val nowPlaying: StateFlow<String?> = _nowPlaying.asStateFlow()
 
     private val _targetBpm = MutableStateFlow(120)
     val targetBpm: StateFlow<Int> = _targetBpm.asStateFlow()
@@ -62,7 +60,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** Auto state lives in [AutoModeState] singleton so the service is the writer. */
     val autoActive: StateFlow<Boolean> = AutoModeState.active
     val autoStatus: StateFlow<String?> = AutoModeState.status
-    val autoNowPlaying: StateFlow<String?> = AutoModeState.nowPlaying
+    val nowPlaying: StateFlow<NowPlaying?> = AutoModeState.nowPlaying
 
     init {
         viewModelScope.launch {
@@ -110,7 +108,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun findAndPlayMatchingSong() {
         _status.value = "Looking for a song near ${_targetBpm.value} BPM…"
-        _nowPlaying.value = null
+        AutoModeState.setNowPlaying(null)
         viewModelScope.launch {
             when (val r = songFinder.findAndPlay(_targetBpm.value, selectedGenre.value)) {
                 FindAndPlayResult.NoBpmCandidates ->
@@ -118,8 +116,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 FindAndPlayResult.NoSpotifyMatch ->
                     _status.value = "Found BPM matches but none were on Spotify."
                 is FindAndPlayResult.Resolved -> {
-                    _nowPlaying.value =
-                        "${r.candidate.title} — ${r.candidate.artist} (${r.candidate.bpm} BPM)"
+                    AutoModeState.setNowPlaying(
+                        NowPlaying(
+                            title = r.candidate.title,
+                            artist = r.candidate.artist,
+                            bpm = r.candidate.bpm,
+                            imageUrl = r.track.album?.images?.firstOrNull()?.url,
+                        )
+                    )
                     _status.value = playResultMessage(r.playResult)
                 }
             }
@@ -142,7 +146,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         stopAuto()
         authRepo.signOut()
         _status.value = null
-        _nowPlaying.value = null
+        AutoModeState.setNowPlaying(null)
     }
 
     private fun playResultMessage(r: PlayResult): String = when (r) {

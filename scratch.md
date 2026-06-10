@@ -12,21 +12,40 @@ adb shell am broadcast -a "whs.USE_SYNTHETIC_PROVIDERS" com.google.android.weara
 
 ## Drive the synthetic HR value
 
+**Reality check**: the synthetic provider runs a hardcoded sawtooth — HR
+ramps 60→150 BPM in 5-BPM steps every second, then resets and repeats.
+The `exercise_options_heart_rate` parameter does *not* hold the value.
+Our app's 10-second smoothing window flattens this for matching purposes.
+
 ```sh
-# walking ~ 110 BPM
+# walking-ish (lower-energy sawtooth)
 adb shell am broadcast -a "whs.synthetic.user.START_WALKING" com.google.android.wearable.healthservices
 
-# running ~ 140-160 BPM (ramps up over ~10s)
+# running-ish (higher-energy sawtooth)
 adb shell am broadcast -a "whs.synthetic.user.STOP_EXERCISE" com.google.android.wearable.healthservices
 adb shell am broadcast -a "whs.synthetic.user.START_RUNNING" com.google.android.wearable.healthservices
 
-# back to walking
-adb shell am broadcast -a "whs.synthetic.user.STOP_EXERCISE" com.google.android.wearable.healthservices
-adb shell am broadcast -a "whs.synthetic.user.START_WALKING" com.google.android.wearable.healthservices
-
-# stop synthetic, go back to (nonexistent) real sensor — HR will go away
+# stop synthetic — HR stops (emulator has no real sensor)
 adb shell am broadcast -a "whs.USE_SENSOR_PROVIDERS" com.google.android.wearable.healthservices
 ```
+
+**Two better paths for realistic test signals:**
+
+1. **Android Studio's Health Services panel** — open the emulator's Extended
+   Controls (•••) and find "Health Services" (heart icon). Slider lets you
+   set HR to a specific value and hold it. Best for interactive testing.
+2. **Bash script that simulates a workout** — drives the synthetic provider
+   through phases (warm-up → jog → sprints → cool-down):
+
+   ```sh
+   bash scripts/simulate-workout.sh             # uses emulator-5556
+   bash scripts/simulate-workout.sh emulator-XX # explicit device
+   ```
+
+**On a real watch**: none of this matters. The synthetic provider only
+runs when `whs.USE_SYNTHETIC_PROVIDERS` has been broadcast. Real watches
+deliver real sensor data through the same `ExerciseClient` callback with
+no code or config changes.
 
 ## Targeting a specific emulator
 

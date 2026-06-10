@@ -162,10 +162,18 @@ class AutoModeService : Service() {
             }
             is FindAndPlayResult.Resolved -> {
                 rememberPlayed(result.track.id)
-                val nowPlayingText =
+                val imageUrl = result.track.album?.images?.firstOrNull()?.url
+                AutoModeState.setNowPlaying(
+                    NowPlaying(
+                        title = result.candidate.title,
+                        artist = result.candidate.artist,
+                        bpm = result.candidate.bpm,
+                        imageUrl = imageUrl,
+                    )
+                )
+                val watchText =
                     "${result.candidate.title} — ${result.candidate.artist} (${result.candidate.bpm} BPM)"
-                AutoModeState.setNowPlaying(nowPlayingText)
-                sendWatchCommand(PATH_NOW_PLAYING, nowPlayingText.toByteArray())
+                sendWatchCommand(PATH_NOW_PLAYING, watchText.toByteArray())
                 when (val pr = result.playResult) {
                     PlayResult.Playing -> {
                         updateUiStatus(
