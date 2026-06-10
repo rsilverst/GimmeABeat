@@ -89,12 +89,13 @@ class AutoModeService : Service() {
         loopJob?.cancel()
         loopJob = null
         AutoModeState.reset()
+        sendWatchCommand(PATH_NOW_PLAYING, ByteArray(0)) // clear before tearing down
         sendWatchCommand(PATH_STOP_TRACKING)
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
 
-    private fun sendWatchCommand(path: String) {
+    private fun sendWatchCommand(path: String, payload: ByteArray = ByteArray(0)) {
         scope.launch {
             val ctx = applicationContext
             val nodes = try {
@@ -106,7 +107,7 @@ class AutoModeService : Service() {
             nodes.forEach { node ->
                 try {
                     Wearable.getMessageClient(ctx)
-                        .sendMessage(node.id, path, ByteArray(0))
+                        .sendMessage(node.id, path, payload)
                         .await()
                 } catch (t: Throwable) {
                     Log.w(TAG, "sendMessage($path) to ${node.displayName} failed", t)
@@ -138,7 +139,9 @@ class AutoModeService : Service() {
     private suspend fun pickAndPlay(reason: String): Boolean {
         val multiplier = Preferences.currentMultiplier(applicationContext)
         val genre = Preferences.currentGenre(applicationContext)
-        val rawHr = HeartRateRelay.heartRate.value?.bpm ?: DEFAULT_HR
+        val rawHr = HeartRateRelay.smoothedBpm.value
+            ?: HeartRateRelay.heartRate.value?.bpm
+            ?: DEFAULT_HR
         val targetBpm = (rawHr * multiplier).toInt().coerceIn(40, 220)
 
         updateUiStatus("$reason — finding song at $targetBpm BPM (${"%.1f".format(multiplier)}× HR)")
@@ -159,9 +162,10 @@ class AutoModeService : Service() {
             }
             is FindAndPlayResult.Resolved -> {
                 rememberPlayed(result.track.id)
-                AutoModeState.setNowPlaying(
+                val nowPlayingText =
                     "${result.candidate.title} — ${result.candidate.artist} (${result.candidate.bpm} BPM)"
-                )
+                AutoModeState.setNowPlaying(nowPlayingText)
+                sendWatchCommand(PATH_NOW_PLAYING, nowPlayingText.toByteArray())
                 when (val pr = result.playResult) {
                     PlayResult.Playing -> {
                         updateUiStatus(
@@ -273,6 +277,7 @@ class AutoModeService : Service() {
         private const val RECENT_LIMIT = 50
         private const val PATH_START_TRACKING = "/start_tracking"
         private const val PATH_STOP_TRACKING = "/stop_tracking"
+        private const val PATH_NOW_PLAYING = "/now_playing"
         private const val TAG = "AutoModeService"
     }
 }

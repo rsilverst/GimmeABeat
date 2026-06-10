@@ -6,8 +6,10 @@ import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.WearableListenerService
 
 /**
- * Receives commands from the phone companion. On `/start_tracking` we kick off
- * the watch's [ExerciseService]; on `/stop_tracking` we ask it to stop.
+ * Receives commands from the phone companion:
+ *  - /start_tracking → start [ExerciseService]
+ *  - /stop_tracking  → stop  [ExerciseService]
+ *  - /now_playing    → display the current track on the watch UI
  */
 class PhoneCommandReceiver : WearableListenerService() {
 
@@ -23,11 +25,16 @@ class PhoneCommandReceiver : WearableListenerService() {
                 }
                 startService(intent)
             }
+            PATH_NOW_PLAYING -> {
+                val text = String(event.data).takeIf { it.isNotBlank() }
+                WatchTrackingState.setNowPlaying(text)
+            }
         }
     }
 
     companion object {
         const val PATH_START = "/start_tracking"
         const val PATH_STOP = "/stop_tracking"
+        const val PATH_NOW_PLAYING = "/now_playing"
     }
 }

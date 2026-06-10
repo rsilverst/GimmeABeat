@@ -3,11 +3,13 @@ package com.rsilverst.gimmeabeat.spotify
 import android.util.Log
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import kotlinx.coroutines.delay
 import net.openid.appauth.AuthorizationService
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
+import java.io.IOException
 
 private const val TAG = "SpotifyClient"
 
@@ -33,15 +35,15 @@ class SpotifyClient(
         .build()
         .create(SpotifyApi::class.java)
 
-    suspend fun me(): SpotifyUser? = withToken { token -> api.me(token) }
+    suspend fun me(): SpotifyUser? = withToken { token -> retrying { api.me(token) } }
 
     suspend fun listDevices(): List<SpotifyDevice>? =
-        withToken { token -> api.devices(token).devices }
+        withToken { token -> retrying { api.devices(token).devices } }
 
     /** Returns the best-matching Spotify track for [title]+[artist], or null. */
     suspend fun searchTrack(title: String, artist: String): SpotifyTrack? = withToken { token ->
         val q = "track:\"${title.escapeForSearch()}\" artist:\"${artist.escapeForSearch()}\""
-        api.search(token, q).tracks?.items?.firstOrNull()
+        retrying { api.search(token, q) }.tracks?.items?.firstOrNull()
     }
 
     /**
@@ -115,6 +117,36 @@ class SpotifyClient(
             Log.w(TAG, "API call failed", t)
             null
         }
+    }
+
+    /**
+     * Retries [block] on transient failures: network IO errors, HTTP 5xx, or
+     * 429 (rate-limited). 4xx errors other than 429 propagate immediately.
+     */
+    private suspend fun <T> retrying(
+        attempts: Int = 3,
+        initialDelayMs: Long = 800,
+        maxDelayMs: Long = 6_000,
+        block: suspend () -> T,
+    ): T {
+        var delayMs = initialDelayMs
+        var last: Throwable? = null
+        repeat(attempts) { i ->
+            try {
+                return block()
+            } catch (t: IOException) {
+                last = t
+            } catch (t: retrofit2.HttpException) {
+                if (t.code() != 429 && t.code() !in 500..599) throw t
+                last = t
+            }
+            if (i < attempts - 1) {
+                Log.d(TAG, "transient error, retrying in ${delayMs}ms (${last?.javaClass?.simpleName})")
+                delay(delayMs)
+                delayMs = (delayMs * 2).coerceAtMost(maxDelayMs)
+            }
+        }
+        throw last ?: IllegalStateException("retry: unknown failure")
     }
 }
 

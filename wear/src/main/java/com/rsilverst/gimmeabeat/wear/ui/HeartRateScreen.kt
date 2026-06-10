@@ -22,8 +22,10 @@ fun HeartRateScreen(
     tracking: Boolean,
     heartRate: Int?,
     status: String?,
+    nowPlaying: String?,
     permissionsGranted: Boolean,
     onRequestPermissions: () -> Unit,
+    onOpenSettings: () -> Unit,
     onStartTracking: () -> Unit,
     onStopTracking: () -> Unit,
 ) {
@@ -44,6 +46,12 @@ fun HeartRateScreen(
                     textAlign = TextAlign.Center,
                 )
                 Button(onClick = onRequestPermissions) { Text("Allow") }
+                Text(
+                    text = "Tap didn't work?",
+                    fontSize = 10.sp,
+                    textAlign = TextAlign.Center,
+                )
+                Button(onClick = onOpenSettings) { Text("Open Settings") }
             }
 
             !tracking -> Column(
@@ -60,17 +68,25 @@ fun HeartRateScreen(
             else -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = heartRate?.toString() ?: "—",
-                    fontSize = 56.sp,
+                    fontSize = 48.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colors.primary,
                 )
                 Text(
                     text = "bpm",
-                    fontSize = 14.sp,
+                    fontSize = 12.sp,
                     color = MaterialTheme.colors.onBackground,
                 )
+                nowPlaying?.let {
+                    Text(
+                        text = it,
+                        fontSize = 11.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
+                    )
+                }
                 status?.let {
-                    Text(text = it, fontSize = 11.sp, textAlign = TextAlign.Center)
+                    Text(text = it, fontSize = 10.sp, textAlign = TextAlign.Center)
                 }
                 Button(onClick = onStopTracking) { Text("Stop") }
             }

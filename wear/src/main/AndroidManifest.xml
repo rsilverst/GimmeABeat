@@ -54,6 +54,10 @@
                     android:host="*"
                     android:pathPrefix="/stop_tracking"
                     android:scheme="wear" />
+                <data
+                    android:host="*"
+                    android:pathPrefix="/now_playing"
+                    android:scheme="wear" />
             </intent-filter>
         </service>
     </application>

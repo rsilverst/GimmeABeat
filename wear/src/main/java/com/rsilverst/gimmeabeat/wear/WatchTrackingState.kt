@@ -19,13 +19,18 @@ object WatchTrackingState {
     private val _status = MutableStateFlow<String?>(null)
     val status: StateFlow<String?> = _status.asStateFlow()
 
+    private val _nowPlaying = MutableStateFlow<String?>(null)
+    val nowPlaying: StateFlow<String?> = _nowPlaying.asStateFlow()
+
     fun setTracking(value: Boolean) { _tracking.value = value }
     fun setHeartRate(bpm: Int?) { _heartRate.value = bpm }
     fun setStatus(text: String?) { _status.value = text }
+    fun setNowPlaying(text: String?) { _nowPlaying.value = text }
 
     fun reset() {
         _tracking.value = false
         _heartRate.value = null
         _status.value = null
+        _nowPlaying.value = null
     }
 }

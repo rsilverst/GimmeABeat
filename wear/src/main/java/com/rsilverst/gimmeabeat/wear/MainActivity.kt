@@ -3,7 +3,9 @@ package com.rsilverst.gimmeabeat.wear
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -37,20 +39,31 @@ class MainActivity : ComponentActivity() {
                 val tracking by WatchTrackingState.tracking.collectAsState()
                 val hr by WatchTrackingState.heartRate.collectAsState()
                 val status by WatchTrackingState.status.collectAsState()
+                val nowPlaying by WatchTrackingState.nowPlaying.collectAsState()
                 val granted by remember { permissionsGranted }
                 HeartRateScreen(
                     tracking = tracking,
                     heartRate = hr,
                     status = status,
+                    nowPlaying = nowPlaying,
                     permissionsGranted = granted,
                     onRequestPermissions = {
                         requestPermissions.launch(REQUIRED_PERMISSIONS)
                     },
+                    onOpenSettings = { openAppSettings() },
                     onStartTracking = { startTracking() },
                     onStopTracking = { stopTracking() },
                 )
             }
         }
+    }
+
+    private fun openAppSettings() {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.fromParts("package", packageName, null)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        startActivity(intent)
     }
 
     private fun startTracking() {
