@@ -38,12 +38,17 @@ class MainActivity : ComponentActivity() {
             GimmeABeatWearTheme {
                 val tracking by WatchTrackingState.tracking.collectAsState()
                 val hr by WatchTrackingState.heartRate.collectAsState()
+                val cadence by WatchTrackingState.cadence.collectAsState()
+                val sourceKey by WatchTrackingState.signalSourceKey.collectAsState()
                 val status by WatchTrackingState.status.collectAsState()
                 val nowPlaying by WatchTrackingState.nowPlaying.collectAsState()
                 val granted by remember { permissionsGranted }
+                val cadenceMode = sourceKey == "cadence"
                 HeartRateScreen(
                     tracking = tracking,
-                    heartRate = hr,
+                    signalValue = if (cadenceMode) cadence else hr,
+                    signalLabel = if (cadenceMode) "Cadence" else "Heart rate",
+                    signalUnit = if (cadenceMode) "spm" else "bpm",
                     status = status,
                     nowPlaying = nowPlaying,
                     permissionsGranted = granted,
@@ -81,6 +86,7 @@ class MainActivity : ComponentActivity() {
     companion object {
         val REQUIRED_PERMISSIONS = arrayOf(
             Manifest.permission.BODY_SENSORS,
+            Manifest.permission.ACTIVITY_RECOGNITION,
             "android.permission.health.READ_HEART_RATE",
         )
     }

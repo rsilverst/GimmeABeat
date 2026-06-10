@@ -37,10 +37,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.rsilverst.gimmeabeat.NowPlaying
+import com.rsilverst.gimmeabeat.SignalSource
 
 @Composable
 fun HomeScreen(
-    heartRate: Int?,
+    signalSource: SignalSource,
+    signalValue: Int?,
     targetBpm: Int?,
     isAuthorized: Boolean,
     autoActive: Boolean,
@@ -66,7 +68,7 @@ fun HomeScreen(
             return@Column
         }
 
-        HeartHero(heartRate = heartRate, targetBpm = targetBpm)
+        SignalHero(source = signalSource, value = signalValue, targetBpm = targetBpm)
         Spacer(Modifier.height(20.dp))
         NowPlayingCard(nowPlaying = nowPlaying)
         Spacer(Modifier.weight(1f))
@@ -105,27 +107,31 @@ private fun TopBar(onOpenSettings: () -> Unit) {
 }
 
 @Composable
-private fun HeartHero(heartRate: Int?, targetBpm: Int?) {
+private fun SignalHero(source: SignalSource, value: Int?, targetBpm: Int?) {
+    val unit = when (source) {
+        SignalSource.HeartRate -> "bpm"
+        SignalSource.Cadence -> "spm"
+    }
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Spacer(Modifier.height(24.dp))
         Text(
-            text = "Heart rate",
+            text = source.label,
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(4.dp))
         Row(verticalAlignment = Alignment.Bottom) {
             Text(
-                text = heartRate?.toString() ?: "—",
+                text = value?.toString() ?: "—",
                 fontSize = 128.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary,
             )
             Text(
-                text = " bpm",
+                text = " $unit",
                 fontSize = 22.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 24.dp),

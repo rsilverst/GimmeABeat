@@ -12,8 +12,12 @@ class HeartRatePublisher(context: Context) {
     private val messageClient = Wearable.getMessageClient(appContext)
     private val nodeClient = Wearable.getNodeClient(appContext)
 
-    suspend fun publish(bpm: Int) {
-        val payload = ByteBuffer.allocate(4).putInt(bpm).array()
+    suspend fun publishHeartRate(bpm: Int) = publish(PATH_HR, bpm, "bpm")
+
+    suspend fun publishCadence(spm: Int) = publish(PATH_CADENCE, spm, "spm")
+
+    private suspend fun publish(path: String, value: Int, label: String) {
+        val payload = ByteBuffer.allocate(4).putInt(value).array()
         val nodes = try {
             nodeClient.connectedNodes.await()
         } catch (t: Throwable) {
@@ -26,16 +30,17 @@ class HeartRatePublisher(context: Context) {
         }
         nodes.forEach { node ->
             try {
-                messageClient.sendMessage(node.id, PATH, payload).await()
-                Log.d(TAG, "Sent bpm=$bpm to ${node.displayName}")
+                messageClient.sendMessage(node.id, path, payload).await()
+                Log.d(TAG, "Sent $label=$value to ${node.displayName}")
             } catch (t: Throwable) {
-                Log.w(TAG, "sendMessage to ${node.displayName} failed", t)
+                Log.w(TAG, "sendMessage($path) to ${node.displayName} failed", t)
             }
         }
     }
 
     companion object {
-        const val PATH = "/heart_rate"
+        const val PATH_HR = "/heart_rate"
+        const val PATH_CADENCE = "/cadence"
         private const val TAG = "HeartRatePublisher"
     }
 }

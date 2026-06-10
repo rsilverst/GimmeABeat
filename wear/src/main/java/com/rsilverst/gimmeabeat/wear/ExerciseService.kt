@@ -35,11 +35,16 @@ class ExerciseService : Service() {
 
     private val callback = object : ExerciseUpdateCallback {
         override fun onExerciseUpdateReceived(update: ExerciseUpdate) {
-            val points = update.latestMetrics.getData(DataType.HEART_RATE_BPM)
-            val latest = points.lastOrNull() ?: return
-            val bpm = latest.value.toInt()
-            WatchTrackingState.setHeartRate(bpm)
-            scope.launch { publisher.publish(bpm) }
+            update.latestMetrics.getData(DataType.HEART_RATE_BPM).lastOrNull()?.let { p ->
+                val bpm = p.value.toInt()
+                WatchTrackingState.setHeartRate(bpm)
+                scope.launch { publisher.publishHeartRate(bpm) }
+            }
+            update.latestMetrics.getData(DataType.STEPS_PER_MINUTE).lastOrNull()?.let { p ->
+                val spm = p.value.toInt()
+                WatchTrackingState.setCadence(spm)
+                scope.launch { publisher.publishCadence(spm) }
+            }
         }
 
         override fun onLapSummaryReceived(lapSummary: ExerciseLapSummary) {}
@@ -107,8 +112,8 @@ class ExerciseService : Service() {
         scope.launch {
             try {
                 exerciseClient.setUpdateCallback(callback)
-                val config = ExerciseConfig.builder(ExerciseType.WORKOUT)
-                    .setDataTypes(setOf(DataType.HEART_RATE_BPM))
+                val config = ExerciseConfig.builder(ExerciseType.RUNNING)
+                    .setDataTypes(setOf(DataType.HEART_RATE_BPM, DataType.STEPS_PER_MINUTE))
                     .setIsAutoPauseAndResumeEnabled(false)
                     .setIsGpsEnabled(false)
                     .build()

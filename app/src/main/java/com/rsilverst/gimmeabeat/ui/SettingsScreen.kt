@@ -45,6 +45,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.rsilverst.gimmeabeat.SPOTIFY_GENRES
+import com.rsilverst.gimmeabeat.SignalSource
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import android.content.Intent
 import android.net.Uri
 
@@ -54,11 +57,13 @@ fun SettingsScreen(
     userPlan: String?,
     selectedGenre: String?,
     multiplier: Float,
+    signalSource: SignalSource,
     targetBpm: Int,
     heartRate: Int?,
     manualStatus: String?,
     onSetGenre: (String?) -> Unit,
     onSetMultiplier: (Float) -> Unit,
+    onSetSignalSource: (SignalSource) -> Unit,
     onSetTargetBpm: (Int) -> Unit,
     onUseHrAsTarget: () -> Unit,
     onFindAndPlay: () -> Unit,
@@ -122,10 +127,35 @@ fun SettingsScreen(
 
             // --- Matching ---
             SettingsCard(title = "Matching") {
+                Text(
+                    text = "Signal source",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SignalSource.entries.forEach { src ->
+                        FilterChip(
+                            selected = src == signalSource,
+                            onClick = { onSetSignalSource(src) },
+                            label = { Text(src.label) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            ),
+                        )
+                    }
+                }
+                Spacer(Modifier.height(16.dp))
+
                 GenreDropdown(selected = selectedGenre, onSelect = onSetGenre)
                 Spacer(Modifier.height(16.dp))
+                val sourceShort = when (signalSource) {
+                    SignalSource.HeartRate -> "HR"
+                    SignalSource.Cadence -> "cadence"
+                }
                 Text(
-                    text = "Song BPM = HR × ${"%.1f".format(multiplier)}",
+                    text = "Song BPM = $sourceShort × ${"%.1f".format(multiplier)}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
@@ -139,7 +169,12 @@ fun SettingsScreen(
                 )
                 Spacer(Modifier.height(12.dp))
                 Text(
-                    text = "1.0× matches HR. 2.0× is typical for running cadence.",
+                    text = when (signalSource) {
+                        SignalSource.HeartRate ->
+                            "1.0× matches HR directly. 2.0× is typical for running cadence."
+                        SignalSource.Cadence ->
+                            "1.0× matches each footfall to a beat (most natural for running)."
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

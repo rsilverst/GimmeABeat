@@ -57,6 +57,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val selectedGenre: StateFlow<String?> =
         Preferences.genreFlow(app).stateIn(viewModelScope, SharingStarted.Eagerly, "pop")
 
+    val signalSource: StateFlow<SignalSource> =
+        Preferences.signalSourceFlow(app).stateIn(
+            viewModelScope,
+            SharingStarted.Eagerly,
+            SignalSource.HeartRate,
+        )
+
     /** Auto state lives in [AutoModeState] singleton so the service is the writer. */
     val autoActive: StateFlow<Boolean> = AutoModeState.active
     val autoStatus: StateFlow<String?> = AutoModeState.status
@@ -97,6 +104,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setMultiplier(value: Float) {
         viewModelScope.launch { Preferences.setMultiplier(appContext, value) }
+    }
+
+    fun setSignalSource(value: SignalSource) {
+        viewModelScope.launch {
+            Preferences.setSignalSource(appContext, value)
+            WatchSync.sendSignalSource(appContext, value)
+        }
     }
 
     fun playTestTrack() {

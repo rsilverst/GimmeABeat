@@ -20,7 +20,9 @@ import androidx.wear.compose.material.Text
 @Composable
 fun HeartRateScreen(
     tracking: Boolean,
-    heartRate: Int?,
+    signalValue: Int?,
+    signalLabel: String,
+    signalUnit: String,
     status: String?,
     nowPlaying: String?,
     permissionsGranted: Boolean,
@@ -67,13 +69,18 @@ fun HeartRateScreen(
 
             else -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    text = heartRate?.toString() ?: "—",
+                    text = signalLabel,
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colors.onSurfaceVariant,
+                )
+                Text(
+                    text = signalValue?.toString() ?: "—",
                     fontSize = 48.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colors.primary,
                 )
                 Text(
-                    text = "bpm",
+                    text = signalUnit,
                     fontSize = 12.sp,
                     color = MaterialTheme.colors.onBackground,
                 )

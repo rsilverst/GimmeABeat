@@ -29,6 +29,10 @@ class PhoneCommandReceiver : WearableListenerService() {
                 val text = String(event.data).takeIf { it.isNotBlank() }
                 WatchTrackingState.setNowPlaying(text)
             }
+            PATH_SIGNAL_SOURCE -> {
+                val key = String(event.data).trim()
+                if (key.isNotEmpty()) WatchTrackingState.setSignalSourceKey(key)
+            }
         }
     }
 
@@ -36,5 +40,6 @@ class PhoneCommandReceiver : WearableListenerService() {
         const val PATH_START = "/start_tracking"
         const val PATH_STOP = "/stop_tracking"
         const val PATH_NOW_PLAYING = "/now_playing"
+        const val PATH_SIGNAL_SOURCE = "/signal_source"
     }
 }

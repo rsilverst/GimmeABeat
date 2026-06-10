@@ -90,19 +90,30 @@ private fun AppRoot(
 
     val heartRate by HeartRateRelay.heartRate.collectAsStateWithLifecycle()
     val smoothedHr by HeartRateRelay.smoothedBpm.collectAsStateWithLifecycle()
+    val cadence by CadenceRelay.cadence.collectAsStateWithLifecycle()
+    val smoothedSpm by CadenceRelay.smoothedSpm.collectAsStateWithLifecycle()
     val isAuthorized by viewModel.isAuthorized.collectAsStateWithLifecycle()
     val user by viewModel.user.collectAsStateWithLifecycle()
     val multiplier by viewModel.multiplier.collectAsStateWithLifecycle()
     val selectedGenre by viewModel.selectedGenre.collectAsStateWithLifecycle()
+    val signalSource by viewModel.signalSource.collectAsStateWithLifecycle()
     val autoActive by viewModel.autoActive.collectAsStateWithLifecycle()
     val autoStatus by viewModel.autoStatus.collectAsStateWithLifecycle()
     val nowPlaying by viewModel.nowPlaying.collectAsStateWithLifecycle()
     val targetBpm by viewModel.targetBpm.collectAsStateWithLifecycle()
     val manualStatus by viewModel.status.collectAsStateWithLifecycle()
 
-    val currentHrForUi = heartRate?.bpm
-    val targetForUi: Int? = remember(smoothedHr, heartRate, multiplier) {
-        val raw = smoothedHr ?: heartRate?.bpm ?: return@remember null
+    val heartRateForUi = heartRate?.bpm
+    val cadenceForUi = cadence?.stepsPerMinute
+    val signalValueForUi = when (signalSource) {
+        SignalSource.HeartRate -> heartRateForUi
+        SignalSource.Cadence -> cadenceForUi
+    }
+    val targetForUi: Int? = remember(signalSource, smoothedHr, smoothedSpm, heartRate, cadence, multiplier) {
+        val raw = when (signalSource) {
+            SignalSource.HeartRate -> smoothedHr ?: heartRate?.bpm
+            SignalSource.Cadence -> smoothedSpm ?: cadence?.stepsPerMinute
+        } ?: return@remember null
         (raw * multiplier).toInt()
     }
 
@@ -117,7 +128,8 @@ private fun AppRoot(
     ) { current ->
         when (current) {
             Screen.Home -> HomeScreen(
-                heartRate = currentHrForUi,
+                signalSource = signalSource,
+                signalValue = signalValueForUi,
                 targetBpm = targetForUi,
                 isAuthorized = isAuthorized,
                 autoActive = autoActive,
@@ -135,14 +147,16 @@ private fun AppRoot(
                 userPlan = user?.product,
                 selectedGenre = selectedGenre,
                 multiplier = multiplier,
+                signalSource = signalSource,
                 targetBpm = targetBpm,
-                heartRate = currentHrForUi,
+                heartRate = heartRateForUi,
                 manualStatus = manualStatus,
                 onSetGenre = viewModel::setGenre,
                 onSetMultiplier = viewModel::setMultiplier,
+                onSetSignalSource = viewModel::setSignalSource,
                 onSetTargetBpm = viewModel::setTargetBpm,
                 onUseHrAsTarget = {
-                    currentHrForUi?.let { viewModel.setTargetBpm(it) }
+                    signalValueForUi?.let { viewModel.setTargetBpm(it) }
                 },
                 onFindAndPlay = { viewModel.findAndPlayMatchingSong() },
                 onSignOut = {

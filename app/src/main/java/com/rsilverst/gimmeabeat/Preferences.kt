@@ -14,6 +14,7 @@ private val Context.prefStore by preferencesDataStore(name = "user_prefs")
 object Preferences {
     private val HR_MULTIPLIER = floatPreferencesKey("hr_multiplier")
     private val GENRE = stringPreferencesKey("genre")
+    private val SIGNAL_SOURCE = stringPreferencesKey("signal_source")
 
     const val DEFAULT_MULTIPLIER = 1.0f
 
@@ -38,4 +39,14 @@ object Preferences {
 
     suspend fun currentGenre(context: Context): String? =
         genreFlow(context).firstOrNull()
+
+    fun signalSourceFlow(context: Context): Flow<SignalSource> =
+        context.prefStore.data.map { SignalSource.fromKey(it[SIGNAL_SOURCE]) }
+
+    suspend fun setSignalSource(context: Context, value: SignalSource) {
+        context.prefStore.edit { it[SIGNAL_SOURCE] = value.key }
+    }
+
+    suspend fun currentSignalSource(context: Context): SignalSource =
+        signalSourceFlow(context).firstOrNull() ?: SignalSource.HeartRate
 }

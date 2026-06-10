@@ -82,6 +82,13 @@ class AutoModeService : Service() {
         AutoModeState.setActive(true)
         recentlyPlayedIds.clear()
         sendWatchCommand(PATH_START_TRACKING)
+        // Sync the current signal source to the watch so its hero matches.
+        scope.launch {
+            WatchSync.sendSignalSource(
+                applicationContext,
+                Preferences.currentSignalSource(applicationContext),
+            )
+        }
         loopJob = scope.launch { runLoop() }
     }
 
@@ -139,10 +146,18 @@ class AutoModeService : Service() {
     private suspend fun pickAndPlay(reason: String): Boolean {
         val multiplier = Preferences.currentMultiplier(applicationContext)
         val genre = Preferences.currentGenre(applicationContext)
-        val rawHr = HeartRateRelay.smoothedBpm.value
-            ?: HeartRateRelay.heartRate.value?.bpm
-            ?: DEFAULT_HR
-        val targetBpm = (rawHr * multiplier).toInt().coerceIn(40, 220)
+        val source = Preferences.currentSignalSource(applicationContext)
+        val rawSignal = when (source) {
+            SignalSource.HeartRate ->
+                HeartRateRelay.smoothedBpm.value
+                    ?: HeartRateRelay.heartRate.value?.bpm
+                    ?: DEFAULT_HR
+            SignalSource.Cadence ->
+                CadenceRelay.smoothedSpm.value
+                    ?: CadenceRelay.cadence.value?.stepsPerMinute
+                    ?: DEFAULT_HR
+        }
+        val targetBpm = (rawSignal * multiplier).toInt().coerceIn(40, 220)
 
         updateUiStatus("$reason — finding song at $targetBpm BPM (${"%.1f".format(multiplier)}× HR)")
 

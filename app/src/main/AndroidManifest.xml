@@ -38,6 +38,10 @@
                     android:host="*"
                     android:pathPrefix="/heart_rate"
                     android:scheme="wear" />
+                <data
+                    android:host="*"
+                    android:pathPrefix="/cadence"
+                    android:scheme="wear" />
             </intent-filter>
         </service>
 
