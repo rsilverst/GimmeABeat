@@ -9,6 +9,8 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
+import android.os.SystemClock
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.health.services.client.HealthServices
@@ -32,18 +34,38 @@ class ExerciseService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private lateinit var exerciseClient: ExerciseClient
     private lateinit var publisher: HeartRatePublisher
+    private var wakeLock: PowerManager.WakeLock? = null
+
+    /** Counters and last-tick timestamps so we can log throughput periodically. */
+    private var hrSentCount = 0L
+    private var spmSentCount = 0L
+    private var lastTickElapsedMs = SystemClock.elapsedRealtime()
 
     private val callback = object : ExerciseUpdateCallback {
         override fun onExerciseUpdateReceived(update: ExerciseUpdate) {
             update.latestMetrics.getData(DataType.HEART_RATE_BPM).lastOrNull()?.let { p ->
                 val bpm = p.value.toInt()
                 WatchTrackingState.setHeartRate(bpm)
+                hrSentCount++
                 scope.launch { publisher.publishHeartRate(bpm) }
             }
             update.latestMetrics.getData(DataType.STEPS_PER_MINUTE).lastOrNull()?.let { p ->
                 val spm = p.value.toInt()
                 WatchTrackingState.setCadence(spm)
+                spmSentCount++
                 scope.launch { publisher.publishCadence(spm) }
+            }
+            maybeLogTick()
+        }
+
+        private fun maybeLogTick() {
+            val now = SystemClock.elapsedRealtime()
+            if (now - lastTickElapsedMs >= 30_000L) {
+                val secs = (now - lastTickElapsedMs) / 1000
+                Log.d(TAG, "tick: HR sends=$hrSentCount spm sends=$spmSentCount over ${secs}s")
+                hrSentCount = 0
+                spmSentCount = 0
+                lastTickElapsedMs = now
             }
         }
 
@@ -109,6 +131,7 @@ class ExerciseService : Service() {
     private fun startTracking() {
         if (WatchTrackingState.tracking.value) return
         WatchTrackingState.setTracking(true)
+        acquireWakeLock()
         scope.launch {
             try {
                 exerciseClient.setUpdateCallback(callback)
@@ -132,10 +155,29 @@ class ExerciseService : Service() {
                 .onFailure { Log.w(TAG, "endExerciseAsync failed", it) }
             runCatching { exerciseClient.clearUpdateCallbackAsync(callback).await() }
                 .onFailure { Log.w(TAG, "clearUpdateCallback failed", it) }
+            releaseWakeLock()
             WatchTrackingState.reset()
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
         }
+    }
+
+    private fun acquireWakeLock() {
+        if (wakeLock?.isHeld == true) return
+        val pm = getSystemService(PowerManager::class.java)
+        wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "GimmeABeat:exercise").apply {
+            setReferenceCounted(false)
+            acquire()
+            Log.d(TAG, "acquired wake lock")
+        }
+    }
+
+    private fun releaseWakeLock() {
+        wakeLock?.let {
+            if (it.isHeld) it.release()
+            Log.d(TAG, "released wake lock")
+        }
+        wakeLock = null
     }
 
     private fun buildNotification(): Notification {
@@ -175,6 +217,7 @@ class ExerciseService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
+        releaseWakeLock()
         super.onDestroy()
     }
 
