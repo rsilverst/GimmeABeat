@@ -59,13 +59,13 @@ fun SettingsScreen(
     multiplier: Float,
     signalSource: SignalSource,
     targetBpm: Int,
-    heartRate: Int?,
+    currentSignalValue: Int?,
     manualStatus: String?,
     onSetGenre: (String?) -> Unit,
     onSetMultiplier: (Float) -> Unit,
     onSetSignalSource: (SignalSource) -> Unit,
     onSetTargetBpm: (Int) -> Unit,
-    onUseHrAsTarget: () -> Unit,
+    onUseSignalAsTarget: () -> Unit,
     onFindAndPlay: () -> Unit,
     onSignOut: () -> Unit,
     onBack: () -> Unit,
@@ -191,7 +191,7 @@ fun SettingsScreen(
                 Slider(
                     value = targetBpm.toFloat(),
                     onValueChange = { onSetTargetBpm(it.toInt()) },
-                    valueRange = 60f..200f,
+                    valueRange = 40f..220f,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(Modifier.height(12.dp))
@@ -203,9 +203,13 @@ fun SettingsScreen(
                             contentColor = MaterialTheme.colorScheme.onPrimary,
                         ),
                     ) { Text("Find & play") }
-                    heartRate?.let { bpm ->
-                        OutlinedButton(onClick = onUseHrAsTarget) {
-                            Text("Use HR ($bpm)")
+                    currentSignalValue?.let { v ->
+                        val label = when (signalSource) {
+                            SignalSource.HeartRate -> "Use HR ($v)"
+                            SignalSource.Cadence -> "Use cadence ($v)"
+                        }
+                        OutlinedButton(onClick = onUseSignalAsTarget) {
+                            Text(label)
                         }
                     }
                 }

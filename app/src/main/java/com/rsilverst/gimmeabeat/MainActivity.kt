@@ -149,13 +149,13 @@ private fun AppRoot(
                 multiplier = multiplier,
                 signalSource = signalSource,
                 targetBpm = targetBpm,
-                heartRate = heartRateForUi,
+                currentSignalValue = signalValueForUi,
                 manualStatus = manualStatus,
                 onSetGenre = viewModel::setGenre,
                 onSetMultiplier = viewModel::setMultiplier,
                 onSetSignalSource = viewModel::setSignalSource,
                 onSetTargetBpm = viewModel::setTargetBpm,
-                onUseHrAsTarget = {
+                onUseSignalAsTarget = {
                     signalValueForUi?.let { viewModel.setTargetBpm(it) }
                 },
                 onFindAndPlay = { viewModel.findAndPlayMatchingSong() },

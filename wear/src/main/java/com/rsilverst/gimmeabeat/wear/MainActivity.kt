@@ -84,8 +84,11 @@ class MainActivity : ComponentActivity() {
     }
 
     companion object {
+        // Wear OS 4+ uses health.READ_HEART_RATE as the canonical sensor-access
+        // permission; BODY_SENSORS is kept in the manifest only for backward compat
+        // with older Wear OS. Don't runtime-request it on modern versions — its
+        // system dialog is broken/deprecated and silently denies.
         val REQUIRED_PERMISSIONS = arrayOf(
-            Manifest.permission.BODY_SENSORS,
             Manifest.permission.ACTIVITY_RECOGNITION,
             "android.permission.health.READ_HEART_RATE",
         )
