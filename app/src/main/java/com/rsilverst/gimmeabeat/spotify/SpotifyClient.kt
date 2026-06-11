@@ -1,5 +1,8 @@
 package com.rsilverst.gimmeabeat.spotify
 
+import android.content.Context
+import android.os.Build
+import android.provider.Settings
 import android.util.Log
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
@@ -14,9 +17,18 @@ import java.io.IOException
 private const val TAG = "SpotifyClient"
 
 class SpotifyClient(
+    context: Context,
     private val auth: SpotifyAuthRepository,
     private val authService: AuthorizationService,
 ) {
+
+    /**
+     * Lowercased name fragments we'll use to identify the Spotify device
+     * entry that corresponds to *this* phone. Spotify Connect typically names
+     * a device after its system device name or Build.MODEL, so containment
+     * either way is usually enough.
+     */
+    private val localDeviceHints: List<String> = buildLocalDeviceHints(context)
 
     private val moshi: Moshi = Moshi.Builder()
         .add(KotlinJsonAdapterFactory())
@@ -69,30 +81,54 @@ class SpotifyClient(
         replace("\"", "").replace("\\", "").trim()
 
     /**
-     * Plays [spotifyUri]. If no device is currently *active*, looks at the user's
-     * available devices and routes playback to the first one. Returns a [PlayResult]
-     * describing the outcome.
+     * Plays [spotifyUri], always routing to the user's phone when one is
+     * available. We look up devices up-front and prefer type=Smartphone
+     * (active first, then any non-restricted) so playback doesn't slip onto a
+     * desktop or other Connect target that happens to be active. Falls back to
+     * the active/any device if no smartphone is registered.
      */
     suspend fun playTrack(spotifyUri: String): PlayResult {
         val token = auth.getFreshAccessToken(authService) ?: return PlayResult.NotAuthorized
         val body = PlayRequest(uris = listOf(spotifyUri))
-        val first = api.play("Bearer $token", body)
-        if (first.code() in 200..204) return PlayResult.Playing
-        if (first.code() != 404) return classify(first)
 
-        // 404 = no active device. Try to pick one from the available devices.
         val devices = try {
             api.devices("Bearer $token").devices
         } catch (t: Throwable) {
-            Log.w(TAG, "devices lookup failed after 404", t)
-            return PlayResult.NoActiveDevice
+            Log.w(TAG, "devices lookup failed", t)
+            emptyList()
         }
-        val target = devices.firstOrNull { it.is_active }?.id
-            ?: devices.firstOrNull { !it.is_restricted }?.id
-            ?: return PlayResult.NoActiveDevice
-        val retry = api.play("Bearer $token", body, target)
-        if (retry.code() in 200..204) return PlayResult.Playing
-        return classify(retry)
+        val target = pickTargetDevice(devices)
+
+        if (target != null) {
+            val resp = api.play("Bearer $token", body, target)
+            if (resp.code() in 200..204) return PlayResult.Playing
+            return classify(resp)
+        }
+
+        // No devices visible at all — try an un-targeted call so Spotify can
+        // route to its last-active device, if any.
+        val fallback = api.play("Bearer $token", body)
+        if (fallback.code() in 200..204) return PlayResult.Playing
+        if (fallback.code() == 404) return PlayResult.NoActiveDevice
+        return classify(fallback)
+    }
+
+    private fun pickTargetDevice(devices: List<SpotifyDevice>): String? {
+        val phones = devices.filter { it.type.equals("Smartphone", ignoreCase = true) }
+        val selfPhones = phones.filter { looksLikeThisPhone(it.name) }
+        return selfPhones.firstOrNull { it.is_active && it.id != null }?.id
+            ?: selfPhones.firstOrNull { it.id != null && !it.is_restricted }?.id
+            ?: phones.firstOrNull { it.is_active && it.id != null }?.id
+            ?: phones.firstOrNull { it.id != null && !it.is_restricted }?.id
+            ?: devices.firstOrNull { it.is_active && it.id != null }?.id
+            ?: devices.firstOrNull { it.id != null && !it.is_restricted }?.id
+    }
+
+    private fun looksLikeThisPhone(deviceName: String): Boolean {
+        if (localDeviceHints.isEmpty()) return false
+        val n = deviceName.trim().lowercase()
+        if (n.isEmpty()) return false
+        return localDeviceHints.any { hint -> n.contains(hint) || hint.contains(n) }
     }
 
     private fun classify(resp: retrofit2.Response<Unit>): PlayResult {
@@ -148,6 +184,25 @@ class SpotifyClient(
         }
         throw last ?: IllegalStateException("retry: unknown failure")
     }
+}
+
+/**
+ * Returns short, lowercased fragments useful for matching the "self" device in
+ * Spotify's `/me/player/devices` response — typically the user-set device name
+ * and the hardware model. Fragments shorter than 3 chars are dropped to avoid
+ * matching unrelated devices on a single common letter.
+ */
+private fun buildLocalDeviceHints(context: Context): List<String> {
+    val hints = mutableListOf<String>()
+    runCatching {
+        Settings.Global.getString(context.contentResolver, Settings.Global.DEVICE_NAME)
+    }.getOrNull()?.let { hints += it }
+    Build.MODEL?.let { hints += it }
+    Build.MANUFACTURER?.let { hints += it }
+    return hints
+        .map { it.trim().lowercase() }
+        .filter { it.length >= 3 }
+        .distinct()
 }
 
 sealed interface PlayResult {

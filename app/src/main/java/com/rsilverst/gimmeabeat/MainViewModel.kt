@@ -31,7 +31,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     val authRepo = SpotifyAuthRepository(app)
     val authService = AuthorizationService(app)
-    private val spotifyClient = SpotifyClient(authRepo, authService)
+    private val spotifyClient = SpotifyClient(appContext, authRepo, authService)
     private val bpmClient = GetSongBpmClient()
     private val songFinder = SongFinder(bpmClient, spotifyClient)
 

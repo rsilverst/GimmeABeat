@@ -45,7 +45,7 @@ class AutoModeService : Service() {
         super.onCreate()
         authRepo = SpotifyAuthRepository(this)
         authService = AuthorizationService(this)
-        spotifyClient = SpotifyClient(authRepo, authService)
+        spotifyClient = SpotifyClient(applicationContext, authRepo, authService)
         songFinder = SongFinder(bpmClient, spotifyClient)
     }
 
@@ -89,7 +89,30 @@ class AutoModeService : Service() {
                 Preferences.currentSignalSource(applicationContext),
             )
         }
-        loopJob = scope.launch { runLoop() }
+        val launched = launchSpotifyIfInstalled()
+        loopJob = scope.launch {
+            // Spotify needs a moment after cold-launch before its device
+            // registers with the Connect API.
+            if (launched) delay(SPOTIFY_WARMUP_MS)
+            runLoop()
+        }
+    }
+
+    private fun launchSpotifyIfInstalled(): Boolean {
+        val intent = packageManager.getLaunchIntentForPackage(SPOTIFY_PACKAGE)
+        if (intent == null) {
+            Log.d(TAG, "Spotify not installed; skipping auto-launch")
+            return false
+        }
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        return try {
+            startActivity(intent)
+            updateUiStatus("Launching Spotify…")
+            true
+        } catch (t: Throwable) {
+            Log.w(TAG, "Spotify launch failed", t)
+            false
+        }
     }
 
     private fun stopAuto() {
@@ -298,6 +321,8 @@ class AutoModeService : Service() {
         private const val END_OF_TRACK_THRESHOLD_MS = 8_000L
         private const val DEFAULT_HR = 80
         private const val RECENT_LIMIT = 50
+        private const val SPOTIFY_PACKAGE = "com.spotify.music"
+        private const val SPOTIFY_WARMUP_MS = 2_000L
         private const val PATH_START_TRACKING = "/start_tracking"
         private const val PATH_STOP_TRACKING = "/stop_tracking"
         private const val PATH_NOW_PLAYING = "/now_playing"
