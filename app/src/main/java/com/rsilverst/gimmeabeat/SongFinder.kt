@@ -5,6 +5,7 @@ import com.rsilverst.gimmeabeat.bpm.BpmCandidate
 import com.rsilverst.gimmeabeat.bpm.GetSongBpmClient
 import com.rsilverst.gimmeabeat.spotify.SpotifyClient
 import com.rsilverst.gimmeabeat.spotify.SpotifyTrack
+import com.rsilverst.gimmeabeat.telemetry.Counters
 import com.rsilverst.gimmeabeat.telemetry.Telemetry
 
 private const val TAG = "SongFinder"
@@ -54,6 +55,7 @@ class SongFinder(
             } ?: FindResult.NoSpotifyMatch
         }
 
+        Counters.increment(Counters.FIND_PREFIX + result.telemetryName)
         Telemetry.log(
             "song_finder",
             mapOf(

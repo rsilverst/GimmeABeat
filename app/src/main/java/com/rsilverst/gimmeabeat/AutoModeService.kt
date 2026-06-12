@@ -13,6 +13,7 @@ import android.os.SystemClock
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.google.android.gms.wearable.Wearable
+import com.rsilverst.gimmeabeat.telemetry.Counters
 import com.rsilverst.gimmeabeat.telemetry.Telemetry
 import com.rsilverst.gimmeabeat.spotify.LocalSpotifyController
 import com.rsilverst.gimmeabeat.spotify.PlayResult
@@ -44,6 +45,7 @@ class AutoModeService : Service() {
     private lateinit var localSpotify: LocalSpotifyController
 
     private var loopJob: Job? = null
+    private var lastCountersFlushMs = 0L
     private val recentlyPlayedIds = ArrayDeque<String>()
     // ID of the track our nowPlaying card currently reflects. Updated both when
     // pickAndPlay starts a track and when the polling loop notices an external
@@ -90,6 +92,8 @@ class AutoModeService : Service() {
     private fun startAuto() {
         if (loopJob?.isActive == true) return
         AutoModeState.setActive(true)
+        Counters.reset()
+        lastCountersFlushMs = SystemClock.elapsedRealtime()
         recentlyPlayedIds.clear()
         sendWatchCommand(PATH_START_TRACKING)
         // Sync the current signal source to the watch so its hero matches.
@@ -109,6 +113,7 @@ class AutoModeService : Service() {
     }
 
     private fun stopAuto() {
+        Counters.logSnapshot("session")
         loopJob?.cancel()
         loopJob = null
         localSpotify.disconnect()
@@ -127,6 +132,12 @@ class AutoModeService : Service() {
                 Wearable.getNodeClient(ctx).connectedNodes.await()
             } catch (t: Throwable) {
                 Log.w(TAG, "connectedNodes failed for $path", t)
+                Counters.increment(Counters.WATCH_UNREACHABLE)
+                return@launch
+            }
+            if (nodes.isEmpty()) {
+                Log.w(TAG, "no connected watch node for $path")
+                Counters.increment(Counters.WATCH_UNREACHABLE)
                 return@launch
             }
             nodes.forEach { node ->
@@ -136,6 +147,7 @@ class AutoModeService : Service() {
                         .await()
                 } catch (t: Throwable) {
                     Log.w(TAG, "sendMessage($path) to ${node.displayName} failed", t)
+                    Counters.increment(Counters.WATCH_SEND_FAILED)
                 }
             }
         }
@@ -146,6 +158,7 @@ class AutoModeService : Service() {
 
         while (coroutineContext.isActive) {
             delay(if (lastFailed) IDLE_BACKOFF_MS else POLL_INTERVAL_MS)
+            maybeFlushCounters()
             val state = spotifyClient.playbackState()
             if (state == null || state.item == null) {
                 lastFailed = !pickAndPlay("Player idle")
@@ -165,6 +178,15 @@ class AutoModeService : Service() {
             if (remaining < END_OF_TRACK_THRESHOLD_MS) {
                 lastFailed = !pickAndPlay("Track ending")
             }
+        }
+    }
+
+    /** Emit a rolling counter snapshot at most once per [COUNTERS_FLUSH_MS]. */
+    private fun maybeFlushCounters() {
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastCountersFlushMs >= COUNTERS_FLUSH_MS) {
+            Counters.logSnapshot("rolling")
+            lastCountersFlushMs = now
         }
     }
 
@@ -189,6 +211,7 @@ class AutoModeService : Service() {
             SignalSource.HeartRate -> HeartRateRelay.heartRate.value?.receivedAtMs
             SignalSource.Cadence -> CadenceRelay.cadence.value?.receivedAtMs
         }
+        if (signalReceivedAtMs == null) Counters.increment(Counters.SIGNAL_ABSENT)
         val rawSignal = when (source) {
             SignalSource.HeartRate ->
                 HeartRateRelay.smoothedBpm.value
@@ -274,6 +297,7 @@ class AutoModeService : Service() {
                         success = false
                     }
                 }
+                Counters.increment(Counters.PLAY_PREFIX + outcome)
             }
         }
 
@@ -388,6 +412,7 @@ class AutoModeService : Service() {
         private const val POLL_INTERVAL_MS = 5_000L
         private const val IDLE_BACKOFF_MS = 20_000L
         private const val END_OF_TRACK_THRESHOLD_MS = 8_000L
+        private const val COUNTERS_FLUSH_MS = 60_000L
         private const val DEFAULT_HR = 80
         private const val RECENT_LIMIT = 50
         private const val PATH_START_TRACKING = "/start_tracking"
