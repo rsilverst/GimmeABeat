@@ -224,6 +224,25 @@ class AutoModeService : Service() {
     }
 
     private suspend fun pickAndPlay(reason: String): Boolean {
+        // Spotify precondition. Without a usable token every track search returns
+        // null, which used to surface as a misleading "none on Spotify". A
+        // revoked refresh token still reports isAuthorized=true (the token is
+        // present, just rejected on use), so getFreshAccessToken() is the only
+        // reliable "can we actually call Spotify" check.
+        if (authRepo.getFreshAccessToken(authService) == null) {
+            val msg = if (authRepo.isAuthorized.value) {
+                "Spotify session expired — sign in again"
+            } else {
+                "Not signed in to Spotify"
+            }
+            updateUiStatus(msg)
+            Telemetry.log(
+                "auto_pick",
+                mapOf("reason" to reason, "outcome" to "not_authorized"),
+            )
+            return false
+        }
+
         val multiplier = Preferences.currentMultiplier(applicationContext)
         val genre = Preferences.currentGenre(applicationContext)
         val source = Preferences.currentSignalSource(applicationContext)
