@@ -168,7 +168,7 @@ class AutoModeService : Service() {
         // Sustained loss → give up regardless of what Spotify is doing. Checked
         // before the playback fetch so a dead watch stops us without waiting on
         // the network.
-        if (signal is SignalStatus.Lost && signal.lostMs >= SIGNAL_GIVE_UP_MS) {
+        if (signal is SignalStatus.Lost && SignalFreshness.shouldGiveUp(signal.lostMs, SIGNAL_GIVE_UP_MS)) {
             logSignalLoss("stop", signal.lostMs)
             giveUpNoSignal()
             return false
@@ -231,14 +231,22 @@ class AutoModeService : Service() {
         }
         val ageMs = receivedAtMs?.let { System.currentTimeMillis() - it }
         val now = SystemClock.elapsedRealtime()
-        return if (ageMs != null && ageMs <= SIGNAL_FRESH_MS && lastKnownBpm != null) {
-            lastLiveSignalAtMs = now
-            awaitingSignal = false
-            SignalStatus.Live(lastKnownBpm)
-        } else {
-            awaitingSignal = true
-            Counters.increment(Counters.SIGNAL_ABSENT)
-            SignalStatus.Lost(lostMs = now - lastLiveSignalAtMs)
+        return when (val status = SignalFreshness.classify(
+            lastKnownBpm = lastKnownBpm,
+            signalAgeMs = ageMs,
+            lostMs = now - lastLiveSignalAtMs,
+            freshThresholdMs = SIGNAL_FRESH_MS,
+        )) {
+            is SignalStatus.Live -> {
+                lastLiveSignalAtMs = now
+                awaitingSignal = false
+                status
+            }
+            is SignalStatus.Lost -> {
+                awaitingSignal = true
+                Counters.increment(Counters.SIGNAL_ABSENT)
+                status
+            }
         }
     }
 
@@ -501,10 +509,43 @@ class AutoModeService : Service() {
 }
 
 /** Result of classifying the current watch signal each loop iteration. */
-private sealed interface SignalStatus {
+internal sealed interface SignalStatus {
     /** A fresh reading is available; [bpm] is the value to match against. */
     data class Live(val bpm: Int) : SignalStatus
 
     /** No usable signal; [lostMs] is how long it has been gone. */
     data class Lost(val lostMs: Long) : SignalStatus
+}
+
+/**
+ * Pure decision logic for watch-signal freshness, split out from
+ * [AutoModeService] so it can be unit tested without Android dependencies. The
+ * service supplies the live readings and the elapsed clock; this only decides
+ * live-vs-lost and when to give up.
+ */
+internal object SignalFreshness {
+
+    /**
+     * Classifies a reading as live or lost.
+     *
+     * @param lastKnownBpm smoothed/last reading value, or null if none received
+     * @param signalAgeMs age of that reading (now − receivedAt), or null if none
+     * @param lostMs how long the signal has been gone (carried on the Lost result)
+     * @param freshThresholdMs the maximum age that still counts as live
+     */
+    fun classify(
+        lastKnownBpm: Int?,
+        signalAgeMs: Long?,
+        lostMs: Long,
+        freshThresholdMs: Long,
+    ): SignalStatus =
+        if (lastKnownBpm != null && signalAgeMs != null && signalAgeMs <= freshThresholdMs) {
+            SignalStatus.Live(lastKnownBpm)
+        } else {
+            SignalStatus.Lost(lostMs)
+        }
+
+    /** True once the signal has been gone at least [giveUpAfterMs]. */
+    fun shouldGiveUp(lostMs: Long, giveUpAfterMs: Long): Boolean =
+        lostMs >= giveUpAfterMs
 }
