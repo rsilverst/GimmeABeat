@@ -74,6 +74,12 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.coil.compose)
 
+    // Spotify App Remote SDK — local IPC to wake Spotify and play on this
+    // device without bringing it to the foreground. AAR ships only via
+    // GitHub releases, so it lives in app/libs/.
+    implementation(fileTree("libs") { include("*.aar") })
+    implementation(libs.gson)
+
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)

@@ -3,7 +3,6 @@ package com.rsilverst.gimmeabeat
 import android.util.Log
 import com.rsilverst.gimmeabeat.bpm.BpmCandidate
 import com.rsilverst.gimmeabeat.bpm.GetSongBpmClient
-import com.rsilverst.gimmeabeat.spotify.PlayResult
 import com.rsilverst.gimmeabeat.spotify.SpotifyClient
 import com.rsilverst.gimmeabeat.spotify.SpotifyTrack
 
@@ -15,22 +14,24 @@ class SongFinder(
 ) {
 
     /**
-     * Looks up candidates at the target BPM, picks the first that resolves to a
-     * Spotify track not in [excludeTrackIds], plays it.
+     * Looks up candidates at the target BPM and returns the first that resolves
+     * to a Spotify track not in [excludeTrackIds]. Pure lookup — the caller is
+     * responsible for actually starting playback (either via local IPC through
+     * [com.rsilverst.gimmeabeat.spotify.LocalSpotifyController] or the Web API).
      */
-    suspend fun findAndPlay(
+    suspend fun findCandidate(
         targetBpm: Int,
         genre: String?,
         excludeTrackIds: Set<String> = emptySet(),
         tolerance: Int = 5,
-    ): FindAndPlayResult {
+    ): FindResult {
         val candidates = bpmClient.findCandidates(
             targetBpm = targetBpm,
             genres = listOfNotNull(genre),
             tolerance = tolerance,
         )
         Log.d(TAG, "got ${candidates.size} BPM candidates for $targetBpm BPM, genre=$genre")
-        if (candidates.isEmpty()) return FindAndPlayResult.NoBpmCandidates
+        if (candidates.isEmpty()) return FindResult.NoBpmCandidates
 
         candidates.shuffled().forEach { candidate ->
             val track = try {
@@ -40,20 +41,15 @@ class SongFinder(
                 null
             }
             if (track != null && track.id !in excludeTrackIds) {
-                val result = spotify.playTrack(track.uri)
-                return FindAndPlayResult.Resolved(candidate, track, result)
+                return FindResult.Found(candidate, track)
             }
         }
-        return FindAndPlayResult.NoSpotifyMatch
+        return FindResult.NoSpotifyMatch
     }
 }
 
-sealed interface FindAndPlayResult {
-    data object NoBpmCandidates : FindAndPlayResult
-    data object NoSpotifyMatch : FindAndPlayResult
-    data class Resolved(
-        val candidate: BpmCandidate,
-        val track: SpotifyTrack,
-        val playResult: PlayResult,
-    ) : FindAndPlayResult
+sealed interface FindResult {
+    data object NoBpmCandidates : FindResult
+    data object NoSpotifyMatch : FindResult
+    data class Found(val candidate: BpmCandidate, val track: SpotifyTrack) : FindResult
 }

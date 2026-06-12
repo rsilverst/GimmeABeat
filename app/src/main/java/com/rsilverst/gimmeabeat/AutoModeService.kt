@@ -12,10 +12,12 @@ import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.google.android.gms.wearable.Wearable
+import com.rsilverst.gimmeabeat.spotify.LocalSpotifyController
 import com.rsilverst.gimmeabeat.spotify.PlayResult
 import com.rsilverst.gimmeabeat.spotify.SpotifyAuthRepository
 import com.rsilverst.gimmeabeat.spotify.SpotifyClient
 import com.rsilverst.gimmeabeat.spotify.SpotifyPlaybackState
+import com.rsilverst.gimmeabeat.spotify.SpotifyTrack
 import com.rsilverst.gimmeabeat.bpm.GetSongBpmClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -37,9 +39,14 @@ class AutoModeService : Service() {
     private lateinit var spotifyClient: SpotifyClient
     private val bpmClient = GetSongBpmClient()
     private lateinit var songFinder: SongFinder
+    private lateinit var localSpotify: LocalSpotifyController
 
     private var loopJob: Job? = null
     private val recentlyPlayedIds = ArrayDeque<String>()
+    // ID of the track our nowPlaying card currently reflects. Updated both when
+    // pickAndPlay starts a track and when the polling loop notices an external
+    // change (Spotify autoplay, a user skip in Spotify, etc.).
+    private var syncedTrackId: String? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -47,6 +54,7 @@ class AutoModeService : Service() {
         authService = AuthorizationService(this)
         spotifyClient = SpotifyClient(applicationContext, authRepo, authService)
         songFinder = SongFinder(bpmClient, spotifyClient)
+        localSpotify = LocalSpotifyController(applicationContext)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -89,35 +97,20 @@ class AutoModeService : Service() {
                 Preferences.currentSignalSource(applicationContext),
             )
         }
-        val launched = launchSpotifyIfInstalled()
         loopJob = scope.launch {
-            // Spotify needs a moment after cold-launch before its device
-            // registers with the Connect API.
-            if (launched) delay(SPOTIFY_WARMUP_MS)
+            // Wake Spotify silently via local App Remote IPC. No UI flash; the
+            // connection also pins subsequent playback to this device.
+            updateUiStatus("Waking Spotify…")
+            localSpotify.connect()
             runLoop()
-        }
-    }
-
-    private fun launchSpotifyIfInstalled(): Boolean {
-        val intent = packageManager.getLaunchIntentForPackage(SPOTIFY_PACKAGE)
-        if (intent == null) {
-            Log.d(TAG, "Spotify not installed; skipping auto-launch")
-            return false
-        }
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        return try {
-            startActivity(intent)
-            updateUiStatus("Launching Spotify…")
-            true
-        } catch (t: Throwable) {
-            Log.w(TAG, "Spotify launch failed", t)
-            false
         }
     }
 
     private fun stopAuto() {
         loopJob?.cancel()
         loopJob = null
+        localSpotify.disconnect()
+        syncedTrackId = null
         AutoModeState.reset()
         sendWatchCommand(PATH_NOW_PLAYING, ByteArray(0)) // clear before tearing down
         sendWatchCommand(PATH_STOP_TRACKING)
@@ -156,7 +149,14 @@ class AutoModeService : Service() {
                 lastFailed = !pickAndPlay("Player idle")
                 continue
             }
-            val duration = state.item.duration_ms ?: continue
+            val item = state.item
+            // If what's actually playing isn't what our card claims (because
+            // Spotify auto-queued, the user pressed skip in Spotify, etc.),
+            // sync the card to reality. BPM is unknown for non-our tracks.
+            if (item.id != syncedTrackId) {
+                syncCardFromState(item)
+            }
+            val duration = item.duration_ms ?: continue
             val remaining = duration - state.progress_ms
             updateUiStatus(autoStatusLine(state, remaining))
             lastFailed = false
@@ -164,6 +164,17 @@ class AutoModeService : Service() {
                 lastFailed = !pickAndPlay("Track ending")
             }
         }
+    }
+
+    private fun syncCardFromState(item: SpotifyTrack) {
+        val title = item.name
+        val artist = item.artists.joinToString(", ") { it.name }.ifBlank { "—" }
+        val imageUrl = item.album?.images?.firstOrNull()?.url
+        AutoModeState.setNowPlaying(
+            NowPlaying(title = title, artist = artist, bpm = null, imageUrl = imageUrl),
+        )
+        syncedTrackId = item.id
+        sendWatchCommand(PATH_NOW_PLAYING, "$title — $artist".toByteArray())
     }
 
     private suspend fun pickAndPlay(reason: String): Boolean {
@@ -184,21 +195,21 @@ class AutoModeService : Service() {
 
         updateUiStatus("$reason — finding song at $targetBpm BPM (${"%.1f".format(multiplier)}× HR)")
 
-        val result = songFinder.findAndPlay(
+        val result = songFinder.findCandidate(
             targetBpm = targetBpm,
             genre = genre,
             excludeTrackIds = recentlyPlayedIds.toSet(),
         )
         return when (result) {
-            FindAndPlayResult.NoBpmCandidates -> {
+            FindResult.NoBpmCandidates -> {
                 updateUiStatus("No songs near $targetBpm BPM — will retry")
                 false
             }
-            FindAndPlayResult.NoSpotifyMatch -> {
+            FindResult.NoSpotifyMatch -> {
                 updateUiStatus("BPM matches but none on Spotify — will retry")
                 false
             }
-            is FindAndPlayResult.Resolved -> {
+            is FindResult.Found -> {
                 rememberPlayed(result.track.id)
                 val imageUrl = result.track.album?.images?.firstOrNull()?.url
                 AutoModeState.setNowPlaying(
@@ -209,10 +220,11 @@ class AutoModeService : Service() {
                         imageUrl = imageUrl,
                     )
                 )
+                syncedTrackId = result.track.id
                 val watchText =
                     "${result.candidate.title} — ${result.candidate.artist} (${result.candidate.bpm} BPM)"
                 sendWatchCommand(PATH_NOW_PLAYING, watchText.toByteArray())
-                when (val pr = result.playResult) {
+                when (val pr = playOnLocalOrFallback(result.track.uri)) {
                     PlayResult.Playing -> {
                         updateUiStatus(
                             "Auto: playing ${result.candidate.title} • target $targetBpm BPM"
@@ -221,7 +233,7 @@ class AutoModeService : Service() {
                     }
                     PlayResult.NoActiveDevice -> {
                         updateUiStatus(
-                            "No Spotify device available. Open Spotify anywhere; will auto-pick."
+                            "No Spotify device available. Open Spotify; will auto-pick."
                         )
                         false
                     }
@@ -240,6 +252,21 @@ class AutoModeService : Service() {
                 }
             }
         }
+    }
+
+    /**
+     * Prefers App Remote (local IPC) so playback lands on this phone with no
+     * UI swap and no risk of Spotify Connect routing to another device. Falls
+     * back to the Web API path when App Remote isn't connected — typically
+     * when Spotify isn't installed locally or the user hasn't authorized our
+     * client in the Spotify app yet.
+     */
+    private suspend fun playOnLocalOrFallback(uri: String): PlayResult {
+        if (localSpotify.isConnected) {
+            val local = localSpotify.play(uri)
+            if (local !is PlayResult.NoActiveDevice) return local
+        }
+        return spotifyClient.playTrack(uri)
     }
 
     private fun rememberPlayed(trackId: String) {
@@ -308,6 +335,7 @@ class AutoModeService : Service() {
 
     override fun onDestroy() {
         loopJob?.cancel()
+        localSpotify.disconnect()
         authService.dispose()
         super.onDestroy()
     }
@@ -321,8 +349,6 @@ class AutoModeService : Service() {
         private const val END_OF_TRACK_THRESHOLD_MS = 8_000L
         private const val DEFAULT_HR = 80
         private const val RECENT_LIMIT = 50
-        private const val SPOTIFY_PACKAGE = "com.spotify.music"
-        private const val SPOTIFY_WARMUP_MS = 2_000L
         private const val PATH_START_TRACKING = "/start_tracking"
         private const val PATH_STOP_TRACKING = "/stop_tracking"
         private const val PATH_NOW_PLAYING = "/now_playing"

@@ -124,12 +124,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _status.value = "Looking for a song near ${_targetBpm.value} BPM…"
         AutoModeState.setNowPlaying(null)
         viewModelScope.launch {
-            when (val r = songFinder.findAndPlay(_targetBpm.value, selectedGenre.value)) {
-                FindAndPlayResult.NoBpmCandidates ->
+            when (val r = songFinder.findCandidate(_targetBpm.value, selectedGenre.value)) {
+                FindResult.NoBpmCandidates ->
                     _status.value = "No songs near ${_targetBpm.value} BPM in that genre."
-                FindAndPlayResult.NoSpotifyMatch ->
+                FindResult.NoSpotifyMatch ->
                     _status.value = "Found BPM matches but none were on Spotify."
-                is FindAndPlayResult.Resolved -> {
+                is FindResult.Found -> {
                     AutoModeState.setNowPlaying(
                         NowPlaying(
                             title = r.candidate.title,
@@ -138,7 +138,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                             imageUrl = r.track.album?.images?.firstOrNull()?.url,
                         )
                     )
-                    _status.value = playResultMessage(r.playResult)
+                    _status.value = playResultMessage(spotifyClient.playTrack(r.track.uri))
                 }
             }
         }

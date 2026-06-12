@@ -199,7 +199,7 @@ private fun NowPlayingCard(nowPlaying: NowPlaying?) {
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                if (nowPlaying != null) {
+                if (nowPlaying?.bpm != null) {
                     Spacer(Modifier.height(6.dp))
                     BpmBadge(bpm = nowPlaying.bpm)
                 }
