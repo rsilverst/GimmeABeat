@@ -12,7 +12,6 @@ import android.os.IBinder
 import android.os.SystemClock
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import com.google.android.gms.wearable.Wearable
 import com.rsilverst.gimmeabeat.telemetry.Counters
 import com.rsilverst.gimmeabeat.telemetry.Telemetry
 import com.rsilverst.gimmeabeat.spotify.LocalSpotifyController
@@ -29,7 +28,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import net.openid.appauth.AuthorizationService
 import kotlin.coroutines.coroutineContext
 
@@ -133,31 +131,9 @@ class AutoModeService : Service() {
     }
 
     private fun sendWatchCommand(path: String, payload: ByteArray = ByteArray(0)) {
-        scope.launch {
-            val ctx = applicationContext
-            val nodes = try {
-                Wearable.getNodeClient(ctx).connectedNodes.await()
-            } catch (t: Throwable) {
-                Log.w(TAG, "connectedNodes failed for $path", t)
-                Counters.increment(Counters.WATCH_UNREACHABLE)
-                return@launch
-            }
-            if (nodes.isEmpty()) {
-                Log.w(TAG, "no connected watch node for $path")
-                Counters.increment(Counters.WATCH_UNREACHABLE)
-                return@launch
-            }
-            nodes.forEach { node ->
-                try {
-                    Wearable.getMessageClient(ctx)
-                        .sendMessage(node.id, path, payload)
-                        .await()
-                } catch (t: Throwable) {
-                    Log.w(TAG, "sendMessage($path) to ${node.displayName} failed", t)
-                    Counters.increment(Counters.WATCH_SEND_FAILED)
-                }
-            }
-        }
+        // Fire-and-forget, but the send itself retries with backoff and records
+        // dropouts (see WearMessenger).
+        scope.launch { WearMessenger.send(applicationContext, path, payload) }
     }
 
     private suspend fun runLoop() {
