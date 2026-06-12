@@ -14,6 +14,7 @@ import android.os.SystemClock
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.health.services.client.HealthServices
+import androidx.wear.ongoing.OngoingActivity
 import androidx.health.services.client.ExerciseClient
 import androidx.health.services.client.ExerciseUpdateCallback
 import androidx.health.services.client.data.Availability
@@ -40,9 +41,18 @@ class ExerciseService : Service() {
     private var hrSentCount = 0L
     private var spmSentCount = 0L
     private var lastTickElapsedMs = SystemClock.elapsedRealtime()
+    private var lastLoggedExerciseState: String? = null
 
     private val callback = object : ExerciseUpdateCallback {
         override fun onExerciseUpdateReceived(update: ExerciseUpdate) {
+            // Log every state transition (ACTIVE → AUTO_PAUSED, etc.) so we can
+            // diagnose throttling: a stuck "AUTO_PAUSED" means the platform is
+            // pausing the exercise despite our setIsAutoPauseAndResumeEnabled(false).
+            val state = update.exerciseStateInfo.state.toString()
+            if (state != lastLoggedExerciseState) {
+                Log.d(TAG, "exercise state → $state")
+                lastLoggedExerciseState = state
+            }
             update.latestMetrics.getData(DataType.HEART_RATE_BPM).lastOrNull()?.let { p ->
                 val bpm = p.value.toInt()
                 WatchTrackingState.setHeartRate(bpm)
@@ -62,7 +72,12 @@ class ExerciseService : Service() {
             val now = SystemClock.elapsedRealtime()
             if (now - lastTickElapsedMs >= 30_000L) {
                 val secs = (now - lastTickElapsedMs) / 1000
-                Log.d(TAG, "tick: HR sends=$hrSentCount spm sends=$spmSentCount over ${secs}s")
+                val held = wakeLock?.isHeld == true
+                Log.d(
+                    TAG,
+                    "tick: HR sends=$hrSentCount spm sends=$spmSentCount over ${secs}s " +
+                        "(wakeLockHeld=$held state=$lastLoggedExerciseState)",
+                )
                 hrSentCount = 0
                 spmSentCount = 0
                 lastTickElapsedMs = now
@@ -116,7 +131,13 @@ class ExerciseService : Service() {
 
     private fun startAsForeground() {
         ensureChannel()
-        val notification = buildNotification()
+        val builder = buildNotificationBuilder()
+        // Wire an Ongoing Activity onto the FGS notification. Wear OS treats
+        // this as a system-recognized active workout, which (on Samsung One UI
+        // Watch in particular) is what stops Health Services from pausing
+        // sensor callbacks once the watch enters dream/AOD mode.
+        applyOngoingActivity(builder)
+        val notification = builder.build()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startForeground(
                 NOTIF_ID,
@@ -126,6 +147,13 @@ class ExerciseService : Service() {
         } else {
             startForeground(NOTIF_ID, notification)
         }
+    }
+
+    private fun applyOngoingActivity(builder: NotificationCompat.Builder) {
+        val ongoingActivity = OngoingActivity.Builder(applicationContext, NOTIF_ID, builder)
+            .setStaticIcon(R.mipmap.ic_launcher)
+            .build()
+        ongoingActivity.apply(applicationContext)
     }
 
     private fun startTracking() {
@@ -180,7 +208,7 @@ class ExerciseService : Service() {
         wakeLock = null
     }
 
-    private fun buildNotification(): Notification {
+    private fun buildNotificationBuilder(): NotificationCompat.Builder {
         val openAppIntent = PendingIntent.getActivity(
             this, 0,
             Intent(this, MainActivity::class.java),
@@ -198,7 +226,6 @@ class ExerciseService : Service() {
             .setOngoing(true)
             .setContentIntent(openAppIntent)
             .addAction(0, "Stop", stopIntent)
-            .build()
     }
 
     private fun ensureChannel() {

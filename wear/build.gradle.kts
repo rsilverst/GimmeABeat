@@ -42,6 +42,7 @@ dependencies {
     implementation(libs.androidx.wear.compose.foundation)
     implementation(libs.androidx.wear.compose.material)
     implementation(libs.androidx.wear.tooling.preview)
+    implementation(libs.androidx.wear.ongoing)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)

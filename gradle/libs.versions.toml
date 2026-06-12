@@ -11,6 +11,7 @@ kotlin = "2.2.10"
 composeBom = "2026.02.01"
 wearCompose = "1.6.0"
 wearToolingPreview = "1.0.0"
+wearOngoing = "1.0.0"
 healthServicesClient = "1.1.0-rc02"
 playServicesWearable = "19.0.0"
 coroutinesPlayServices = "1.10.2"
@@ -47,6 +48,7 @@ androidx-compose-material-icons-extended = { group = "androidx.compose.material"
 androidx-wear-compose-foundation = { group = "androidx.wear.compose", name = "compose-foundation", version.ref = "wearCompose" }
 androidx-wear-compose-material = { group = "androidx.wear.compose", name = "compose-material", version.ref = "wearCompose" }
 androidx-wear-tooling-preview = { group = "androidx.wear", name = "wear-tooling-preview", version.ref = "wearToolingPreview" }
+androidx-wear-ongoing = { group = "androidx.wear", name = "wear-ongoing", version.ref = "wearOngoing" }
 
 # Health Services (heart rate sensor)
 androidx-health-services-client = { group = "androidx.health", name = "health-services-client", version.ref = "healthServicesClient" }
