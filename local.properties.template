@@ -1,0 +1,22 @@
+# Template for local.properties — copy to `local.properties` and fill in your keys.
+#
+#   cp local.properties.template local.properties
+#
+# `local.properties` is git-ignored and must NOT be committed. Android Studio
+# generates `sdk.dir` automatically on first open, so you usually only need to
+# add the two API keys below. These are read in app/build.gradle.kts and exposed
+# as BuildConfig.SPOTIFY_CLIENT_ID / BuildConfig.GET_SONG_BPM_API_KEY.
+#
+# NOTE: these are client-side keys and end up in the APK. The Spotify client ID
+# is public by design (OAuth PKCE flow). Do not put a Spotify client *secret*
+# here — the app does not use one.
+
+# Location of the Android SDK (auto-filled by Android Studio; uncomment + edit
+# if building from the CLI without Studio having generated it).
+# sdk.dir=/Users/you/Library/Android/sdk
+
+# Spotify app client ID — https://developer.spotify.com/dashboard
+spotifyClientId=YOUR_SPOTIFY_CLIENT_ID
+
+# getsongbpm.com API key — https://getsongbpm.com/api
+getSongBpmApiKey=YOUR_GETSONGBPM_API_KEY
