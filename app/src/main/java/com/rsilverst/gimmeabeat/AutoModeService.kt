@@ -9,9 +9,11 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.os.SystemClock
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.google.android.gms.wearable.Wearable
+import com.rsilverst.gimmeabeat.telemetry.Telemetry
 import com.rsilverst.gimmeabeat.spotify.LocalSpotifyController
 import com.rsilverst.gimmeabeat.spotify.PlayResult
 import com.rsilverst.gimmeabeat.spotify.SpotifyAuthRepository
@@ -181,6 +183,12 @@ class AutoModeService : Service() {
         val multiplier = Preferences.currentMultiplier(applicationContext)
         val genre = Preferences.currentGenre(applicationContext)
         val source = Preferences.currentSignalSource(applicationContext)
+        // Timestamp of the freshest reading behind rawSignal, so telemetry can
+        // tell a live match from one made against a stale (or absent) signal.
+        val signalReceivedAtMs = when (source) {
+            SignalSource.HeartRate -> HeartRateRelay.heartRate.value?.receivedAtMs
+            SignalSource.Cadence -> CadenceRelay.cadence.value?.receivedAtMs
+        }
         val rawSignal = when (source) {
             SignalSource.HeartRate ->
                 HeartRateRelay.smoothedBpm.value
@@ -200,17 +208,25 @@ class AutoModeService : Service() {
             genre = genre,
             excludeTrackIds = recentlyPlayedIds.toSet(),
         )
-        return when (result) {
+
+        var trackId: String? = null
+        var playLatencyMs: Long? = null
+        val outcome: String
+        val success: Boolean
+        when (result) {
             FindResult.NoBpmCandidates -> {
                 updateUiStatus("No songs near $targetBpm BPM — will retry")
-                false
+                outcome = "no_bpm_candidates"
+                success = false
             }
             FindResult.NoSpotifyMatch -> {
                 updateUiStatus("BPM matches but none on Spotify — will retry")
-                false
+                outcome = "no_spotify_match"
+                success = false
             }
             is FindResult.Found -> {
                 rememberPlayed(result.track.id)
+                trackId = result.track.id
                 val imageUrl = result.track.album?.images?.firstOrNull()?.url
                 AutoModeState.setNowPlaying(
                     NowPlaying(
@@ -224,34 +240,59 @@ class AutoModeService : Service() {
                 val watchText =
                     "${result.candidate.title} — ${result.candidate.artist} (${result.candidate.bpm} BPM)"
                 sendWatchCommand(PATH_NOW_PLAYING, watchText.toByteArray())
-                when (val pr = playOnLocalOrFallback(result.track.uri)) {
+                val playStartedMs = SystemClock.elapsedRealtime()
+                val pr = playOnLocalOrFallback(result.track.uri)
+                playLatencyMs = SystemClock.elapsedRealtime() - playStartedMs
+                when (pr) {
                     PlayResult.Playing -> {
                         updateUiStatus(
                             "Auto: playing ${result.candidate.title} • target $targetBpm BPM"
                         )
-                        true
+                        outcome = "playing"
+                        success = true
                     }
                     PlayResult.NoActiveDevice -> {
                         updateUiStatus(
                             "No Spotify device available. Open Spotify; will auto-pick."
                         )
-                        false
+                        outcome = "no_active_device"
+                        success = false
                     }
                     PlayResult.PremiumRequired -> {
                         updateUiStatus("Spotify Premium required.")
-                        false
+                        outcome = "premium_required"
+                        success = false
                     }
                     PlayResult.NotAuthorized -> {
                         updateUiStatus("Not signed in.")
-                        false
+                        outcome = "not_authorized"
+                        success = false
                     }
                     is PlayResult.Error -> {
                         updateUiStatus("Playback error: ${pr.message}")
-                        false
+                        outcome = "play_error"
+                        success = false
                     }
                 }
             }
         }
+
+        Telemetry.log(
+            "auto_pick",
+            mapOf(
+                "reason" to reason,
+                "source" to source.key,
+                "rawSignal" to rawSignal,
+                "signalPresent" to (signalReceivedAtMs != null),
+                "signalAgeMs" to signalReceivedAtMs?.let { System.currentTimeMillis() - it },
+                "multiplier" to "%.2f".format(multiplier),
+                "targetBpm" to targetBpm,
+                "outcome" to outcome,
+                "trackId" to trackId,
+                "playLatencyMs" to playLatencyMs,
+            ),
+        )
+        return success
     }
 
     /**

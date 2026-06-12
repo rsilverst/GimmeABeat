@@ -5,6 +5,7 @@ import com.rsilverst.gimmeabeat.bpm.BpmCandidate
 import com.rsilverst.gimmeabeat.bpm.GetSongBpmClient
 import com.rsilverst.gimmeabeat.spotify.SpotifyClient
 import com.rsilverst.gimmeabeat.spotify.SpotifyTrack
+import com.rsilverst.gimmeabeat.telemetry.Telemetry
 
 private const val TAG = "SongFinder"
 
@@ -30,21 +31,41 @@ class SongFinder(
             genres = listOfNotNull(genre),
             tolerance = tolerance,
         )
-        Log.d(TAG, "got ${candidates.size} BPM candidates for $targetBpm BPM, genre=$genre")
-        if (candidates.isEmpty()) return FindResult.NoBpmCandidates
 
-        candidates.shuffled().forEach { candidate ->
-            val track = try {
-                spotify.searchTrack(candidate.title, candidate.artist)
-            } catch (t: Throwable) {
-                Log.w(TAG, "spotify search failed for ${candidate.title}", t)
-                null
-            }
-            if (track != null && track.id !in excludeTrackIds) {
-                return FindResult.Found(candidate, track)
-            }
+        // Resolve to the first candidate that maps to a fresh Spotify track. The
+        // search short-circuits on first hit, so we can't cheaply report a total
+        // match count — `candidates` size plus the outcome is enough to surface
+        // BPM/genre dead zones (0 candidates, or candidates but no Spotify match).
+        val result: FindResult = if (candidates.isEmpty()) {
+            FindResult.NoBpmCandidates
+        } else {
+            candidates.shuffled().firstNotNullOfOrNull { candidate ->
+                val track = try {
+                    spotify.searchTrack(candidate.title, candidate.artist)
+                } catch (t: Throwable) {
+                    Log.w(TAG, "spotify search failed for ${candidate.title}", t)
+                    null
+                }
+                if (track != null && track.id !in excludeTrackIds) {
+                    FindResult.Found(candidate, track)
+                } else {
+                    null
+                }
+            } ?: FindResult.NoSpotifyMatch
         }
-        return FindResult.NoSpotifyMatch
+
+        Telemetry.log(
+            "song_finder",
+            mapOf(
+                "targetBpm" to targetBpm,
+                "genre" to (genre ?: "any"),
+                "tolerance" to tolerance,
+                "candidates" to candidates.size,
+                "outcome" to result.telemetryName,
+                "trackId" to (result as? FindResult.Found)?.track?.id,
+            ),
+        )
+        return result
     }
 }
 
@@ -52,4 +73,12 @@ sealed interface FindResult {
     data object NoBpmCandidates : FindResult
     data object NoSpotifyMatch : FindResult
     data class Found(val candidate: BpmCandidate, val track: SpotifyTrack) : FindResult
+
+    /** Stable, low-cardinality label for telemetry/aggregation. */
+    val telemetryName: String
+        get() = when (this) {
+            NoBpmCandidates -> "no_bpm_candidates"
+            NoSpotifyMatch -> "no_spotify_match"
+            is Found -> "found"
+        }
 }

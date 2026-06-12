@@ -61,9 +61,16 @@ Grouped by priority; duplicates merged across hats. The bracketed tag is the hat
 
 ### P0 — instrument before optimizing
 
-- **Wearable Data Layer latency instrumentation** `[UXR]` — Log message timestamps in `HeartRateRelay.update()` and on the watch publisher; report P50/P95/P99 every 30s to telemetry to diagnose signal lag → stale song picks.
-- **`SongFinder` library-coverage logging** `[UXR]` — Log `(targetBpm, genre, candidatesFound, spotifyMatches)` in `findCandidate()` (sampled); aggregate daily to find BPM/genre dead zones (<5 candidates / 0 Spotify matches).
-- **Auto-mode event telemetry** `[UXR]` — Log every `runLoop()` state transition `(reason, targetBpm, findResult, songId, playLatencyMs, remainingMs)` with opt-in daily export to find failure patterns.
+> **✅ Done** — All three P0 items shipped via a single shared telemetry surface
+> (`telemetry/Telemetry.kt`): structured `key=value` logcat lines under tag
+> `GABeatTelemetry` plus a bounded 500-event in-memory ring buffer (the basis for
+> a future debug card / opt-in export). Watch live with
+> `adb logcat | grep GABeatTelemetry`. Sink is local-only for now — no analytics
+> backend, no new dependencies.
+
+- **Wearable Data Layer latency instrumentation** `[UXR]` ✅ — `SignalArrivalMeter` wired into `HeartRateRelay.update()` and `CadenceRelay.update()` emits `signal_latency` with P50/P95/P99 + max **inter-arrival gaps** every 30s. *Deviation by design:* measures phone-side inter-arrival (one monotonic clock) rather than watch→phone latency — the watch/phone clocks are unsynchronized, so subtracting a watch timestamp yields meaningless values; inter-arrival gaps are what actually diagnose signal-lag → stale picks. Watch-side publish cadence is a possible follow-up.
+- **`SongFinder` library-coverage logging** `[UXR]` ✅ — `findCandidate()` emits `song_finder` with `targetBpm`, `genre`, `tolerance`, `candidates` count, `outcome` (`found` / `no_bpm_candidates` / `no_spotify_match`), and `trackId`. Logs `candidates` count + outcome rather than a total Spotify-match count (the search short-circuits on first hit; counting all matches would cost extra API calls) — still surfaces BPM/genre dead zones.
+- **Auto-mode event telemetry** `[UXR]` ✅ — `pickAndPlay()` emits `auto_pick` per pick with `reason`, `source`, `rawSignal`, `signalPresent`, `signalAgeMs` (distinguishes a live match from one against a stale/absent signal — the `DEFAULT_HR=80` fallback), `multiplier`, `targetBpm`, `outcome`, `trackId`, and `playLatencyMs`.
 
 ### P1 — resilience, reach, and de-risking
 
@@ -101,7 +108,7 @@ Grouped by priority; duplicates merged across hats. The bracketed tag is the hat
 ## Top 5 — If You Only Do Five Things
 
 1. **Add a smoke-test + CI gate and a real test suite** (P1, TL). Only stub tests exist; the resilience and edge-case work below has no safety net. (Note: the original #1 — a "P0 secrets leak" — was a false positive; `local.properties` is correctly gitignored and untracked, so it has been removed.)
-2. **Instrument the core loop** — Data Layer latency, `SongFinder` coverage, and auto-mode event telemetry (P0, UXR + PM/TL counters). Every optimization debate (song frequency, dead zones, battery) is currently blind; this unblocks all of them.
+2. **✅ Instrument the core loop** — Data Layer latency, `SongFinder` coverage, and auto-mode event telemetry (P0, UXR + PM/TL counters). *Done* — shipped via a shared `Telemetry` surface (see P0 section). Every optimization debate (song frequency, dead zones, battery) was blind; this unblocks them. Remaining: the P1 failure counters and an opt-in export/debug card built on the new ring buffer.
 3. **Stop failing silently on watch/sensor loss** — add retry+backoff to Data Layer sends, escalate after consecutive null signals instead of defaulting to HR 80, and surface a connection/freshness indicator on `HomeScreen` (P1, all four hats).
 4. **Quantify and document the Spotify Premium dependency** (P1, PM/TL). It potentially gates the majority of the addressable market; the team needs a clear answer before any growth work.
 5. **Fix accessibility & localization basics** — extract strings to `strings.xml` and add contentDescriptions/typography tokens (P1, UXD). Low effort, high reach, and a prerequisite for any audience beyond English-speaking sighted power users.

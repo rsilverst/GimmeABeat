@@ -1,5 +1,6 @@
 package com.rsilverst.gimmeabeat
 
+import com.rsilverst.gimmeabeat.telemetry.SignalArrivalMeter
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,9 +23,11 @@ object HeartRateRelay {
     val smoothedBpm: StateFlow<Int?> = _smoothedBpm.asStateFlow()
 
     private val recent = ArrayDeque<Pair<Long, Int>>()
+    private val arrivalMeter = SignalArrivalMeter("hr")
 
     @Synchronized
     fun update(bpm: Int) {
+        arrivalMeter.onArrival()
         val now = System.currentTimeMillis()
         _heartRate.value = HeartRateReading(bpm = bpm, receivedAtMs = now)
         recent.addLast(now to bpm)

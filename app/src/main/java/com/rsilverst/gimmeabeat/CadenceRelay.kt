@@ -1,5 +1,6 @@
 package com.rsilverst.gimmeabeat
 
+import com.rsilverst.gimmeabeat.telemetry.SignalArrivalMeter
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,9 +19,11 @@ object CadenceRelay {
     val smoothedSpm: StateFlow<Int?> = _smoothedSpm.asStateFlow()
 
     private val recent = ArrayDeque<Pair<Long, Int>>()
+    private val arrivalMeter = SignalArrivalMeter("cadence")
 
     @Synchronized
     fun update(spm: Int) {
+        arrivalMeter.onArrival()
         val now = System.currentTimeMillis()
         _cadence.value = CadenceReading(stepsPerMinute = spm, receivedAtMs = now)
         recent.addLast(now to spm)
