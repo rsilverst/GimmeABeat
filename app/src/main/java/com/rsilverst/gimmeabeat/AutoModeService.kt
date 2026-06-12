@@ -44,10 +44,11 @@ class AutoModeService : Service() {
 
     private var loopJob: Job? = null
     private var lastCountersFlushMs = 0L
-    // Consecutive picks with no live watch signal; drives the wait → give-up
-    // escalation in [handleSignalLoss]. [awaitingSignal] makes the loop poll
-    // quickly while we wait for the signal to come back.
-    private var consecutiveSignalMisses = 0
+    // Elapsed-time of the last live watch signal (or auto-mode start). The loop
+    // checks freshness every poll — even while a track keeps playing — so a lost
+    // signal escalates to a "waiting" state and eventually stops auto mode.
+    // [awaitingSignal] makes the loop poll quickly while a signal is gone.
+    private var lastLiveSignalAtMs = 0L
     private var awaitingSignal = false
     private val recentlyPlayedIds = ArrayDeque<String>()
     // ID of the track our nowPlaying card currently reflects. Updated both when
@@ -97,7 +98,7 @@ class AutoModeService : Service() {
         AutoModeState.setActive(true)
         Counters.reset()
         lastCountersFlushMs = SystemClock.elapsedRealtime()
-        consecutiveSignalMisses = 0
+        lastLiveSignalAtMs = SystemClock.elapsedRealtime()
         awaitingSignal = false
         recentlyPlayedIds.clear()
         sendWatchCommand(PATH_START_TRACKING)
@@ -137,62 +138,112 @@ class AutoModeService : Service() {
     }
 
     private suspend fun runLoop() {
-        var lastFailed = !pickAndPlay("Starting auto mode")
-
+        var firstTick = true
+        var lastFailed = false
         while (coroutineContext.isActive) {
-            delay(
-                when {
-                    awaitingSignal -> SIGNAL_WAIT_INTERVAL_MS
-                    lastFailed -> IDLE_BACKOFF_MS
-                    else -> POLL_INTERVAL_MS
-                }
-            )
+            if (!firstTick) {
+                delay(
+                    when {
+                        awaitingSignal -> SIGNAL_WAIT_INTERVAL_MS
+                        lastFailed -> IDLE_BACKOFF_MS
+                        else -> POLL_INTERVAL_MS
+                    }
+                )
+            }
             maybeFlushCounters()
-            val state = spotifyClient.playbackState()
-            if (state == null || state.item == null) {
-                lastFailed = !pickAndPlay("Player idle")
-                continue
-            }
-            val item = state.item
-            // If what's actually playing isn't what our card claims (because
-            // Spotify auto-queued, the user pressed skip in Spotify, etc.),
-            // sync the card to reality. BPM is unknown for non-our tracks.
-            if (item.id != syncedTrackId) {
-                syncCardFromState(item)
-            }
-            val duration = item.duration_ms ?: continue
-            val remaining = duration - state.progress_ms
-            updateUiStatus(autoStatusLine(state, remaining))
-            lastFailed = false
-            if (remaining < END_OF_TRACK_THRESHOLD_MS) {
-                lastFailed = !pickAndPlay("Track ending")
-            }
+            lastFailed = !tick(firstTick)
+            firstTick = false
         }
     }
 
     /**
-     * Called when a pick has no live watch signal. Below the give-up threshold
-     * we surface a "waiting" state and let the loop re-check quickly; past it we
-     * stop auto mode entirely so the app isn't left pretending to track a watch
-     * that has gone away. Always returns false (this pick produced no playback).
+     * One loop iteration. Evaluates the watch signal *every* time — not just when
+     * we pick — so loss is caught even while a track keeps playing. Returns true
+     * for a "good" tick (live signal, and either playing or a successful pick),
+     * false when it backs off (waiting / idle / failed pick / give-up).
      */
-    private fun handleSignalLoss(signalAgeMs: Long?): Boolean {
-        val giveUp = consecutiveSignalMisses >= SIGNAL_GIVE_UP_MISSES
-        Telemetry.log(
-            "signal_loss",
-            mapOf(
-                "misses" to consecutiveSignalMisses,
-                "signalAgeMs" to signalAgeMs,
-                "action" to if (giveUp) "stop" else "wait",
-            ),
-        )
-        if (giveUp) {
+    private suspend fun tick(firstTick: Boolean): Boolean {
+        val signal = evaluateSignal()
+
+        // Sustained loss → give up regardless of what Spotify is doing. Checked
+        // before the playback fetch so a dead watch stops us without waiting on
+        // the network.
+        if (signal is SignalStatus.Lost && signal.lostMs >= SIGNAL_GIVE_UP_MS) {
+            logSignalLoss("stop", signal.lostMs)
             giveUpNoSignal()
+            return false
+        }
+
+        val state = spotifyClient.playbackState()
+        val item = state?.item
+
+        if (signal is SignalStatus.Lost) {
+            if (item != null) {
+                // Behavior (a): don't interrupt the current track. Keep it
+                // playing, follow Spotify if it changed tracks, but tell the
+                // truth in the status — and keep counting toward give-up.
+                if (item.id != syncedTrackId) syncCardFromState(item)
+                logSignalLoss("keep_playing", signal.lostMs)
+                updateUiStatus("Signal lost — keeping current track")
+            } else {
+                // Idle + lost → wait; the loop polls quickly to resume or stop.
+                logSignalLoss("wait", signal.lostMs)
+                updateUiStatus("Waiting for signal from watch…")
+            }
+            return false
+        }
+
+        // Signal is live.
+        val bpm = (signal as SignalStatus.Live).bpm
+        if (state == null || item == null) {
+            return pickAndPlay(if (firstTick) "Starting auto mode" else "Player idle", bpm)
+        }
+        // If what's actually playing isn't what our card claims (Spotify
+        // auto-queued, a skip in Spotify, etc.), sync the card to reality.
+        if (item.id != syncedTrackId) syncCardFromState(item)
+        val duration = item.duration_ms ?: return true
+        val remaining = duration - state.progress_ms
+        updateUiStatus(autoStatusLine(state, remaining))
+        if (remaining < END_OF_TRACK_THRESHOLD_MS) {
+            return pickAndPlay("Track ending", bpm)
+        }
+        return true
+    }
+
+    /**
+     * Classifies the active signal source as live or lost. A live reading
+     * refreshes [lastLiveSignalAtMs] and clears [awaitingSignal]; a lost one sets
+     * [awaitingSignal] (so the loop polls quickly) and bumps the signal_absent
+     * counter. "Lost" means no reading, a reading older than [SIGNAL_FRESH_MS],
+     * or no usable value yet.
+     */
+    private suspend fun evaluateSignal(): SignalStatus {
+        val source = Preferences.currentSignalSource(applicationContext)
+        val receivedAtMs = when (source) {
+            SignalSource.HeartRate -> HeartRateRelay.heartRate.value?.receivedAtMs
+            SignalSource.Cadence -> CadenceRelay.cadence.value?.receivedAtMs
+        }
+        val lastKnownBpm = when (source) {
+            SignalSource.HeartRate ->
+                HeartRateRelay.smoothedBpm.value ?: HeartRateRelay.heartRate.value?.bpm
+            SignalSource.Cadence ->
+                CadenceRelay.smoothedSpm.value ?: CadenceRelay.cadence.value?.stepsPerMinute
+        }
+        val ageMs = receivedAtMs?.let { System.currentTimeMillis() - it }
+        val now = SystemClock.elapsedRealtime()
+        return if (ageMs != null && ageMs <= SIGNAL_FRESH_MS && lastKnownBpm != null) {
+            lastLiveSignalAtMs = now
+            awaitingSignal = false
+            SignalStatus.Live(lastKnownBpm)
         } else {
             awaitingSignal = true
-            updateUiStatus("Waiting for signal from watch…")
+            Counters.increment(Counters.SIGNAL_ABSENT)
+            SignalStatus.Lost(lostMs = now - lastLiveSignalAtMs)
         }
-        return false
+    }
+
+    private fun logSignalLoss(action: String, lostMs: Long) {
+        Telemetry.log("signal_loss", mapOf("action" to action, "lostMs" to lostMs))
     }
 
     private fun giveUpNoSignal() {
@@ -223,7 +274,7 @@ class AutoModeService : Service() {
         sendWatchCommand(PATH_NOW_PLAYING, "$title — $artist".toByteArray())
     }
 
-    private suspend fun pickAndPlay(reason: String): Boolean {
+    private suspend fun pickAndPlay(reason: String, signalBpm: Int): Boolean {
         // Spotify precondition. Without a usable token every track search returns
         // null, which used to surface as a misleading "none on Spotify". A
         // revoked refresh token still reports isAuthorized=true (the token is
@@ -246,39 +297,7 @@ class AutoModeService : Service() {
         val multiplier = Preferences.currentMultiplier(applicationContext)
         val genre = Preferences.currentGenre(applicationContext)
         val source = Preferences.currentSignalSource(applicationContext)
-        // Freshest reading behind the signal, plus the last known value. We do
-        // not fabricate a default when the watch goes quiet: a stale or absent
-        // signal is handled explicitly below rather than matching songs to a
-        // made-up heart rate.
-        val signalReceivedAtMs = when (source) {
-            SignalSource.HeartRate -> HeartRateRelay.heartRate.value?.receivedAtMs
-            SignalSource.Cadence -> CadenceRelay.cadence.value?.receivedAtMs
-        }
-        val lastKnownBpm = when (source) {
-            SignalSource.HeartRate ->
-                HeartRateRelay.smoothedBpm.value ?: HeartRateRelay.heartRate.value?.bpm
-            SignalSource.Cadence ->
-                CadenceRelay.smoothedSpm.value ?: CadenceRelay.cadence.value?.stepsPerMinute
-        }
-        val signalAgeMs = signalReceivedAtMs?.let { System.currentTimeMillis() - it }
-        val signalLive = signalAgeMs != null && signalAgeMs <= SIGNAL_FRESH_MS
-        if (signalLive) {
-            consecutiveSignalMisses = 0
-        } else {
-            consecutiveSignalMisses++
-            Counters.increment(Counters.SIGNAL_ABSENT)
-        }
-
-        // Sustained loss (or never having had a signal) → wait, then eventually
-        // give up, instead of picking against a stale value. Brief gaps coast on
-        // the last known reading so a one-off dropout doesn't interrupt music.
-        if (!signalLive && consecutiveSignalMisses >= SIGNAL_MISS_THRESHOLD) {
-            return handleSignalLoss(signalAgeMs)
-        }
-        val effectiveBpm = lastKnownBpm ?: return handleSignalLoss(signalAgeMs)
-        awaitingSignal = false
-
-        val targetBpm = (effectiveBpm * multiplier).toInt().coerceIn(40, 220)
+        val targetBpm = (signalBpm * multiplier).toInt().coerceIn(40, 220)
 
         updateUiStatus("$reason — finding song at $targetBpm BPM (${"%.1f".format(multiplier)}× HR)")
 
@@ -362,9 +381,7 @@ class AutoModeService : Service() {
             mapOf(
                 "reason" to reason,
                 "source" to source.key,
-                "effectiveBpm" to effectiveBpm,
-                "signalPresent" to (signalReceivedAtMs != null),
-                "signalAgeMs" to signalAgeMs,
+                "signalBpm" to signalBpm,
                 "multiplier" to "%.2f".format(multiplier),
                 "targetBpm" to targetBpm,
                 "outcome" to outcome,
@@ -471,11 +488,8 @@ class AutoModeService : Service() {
         private const val COUNTERS_FLUSH_MS = 60_000L
         // A reading older than this is treated as no live signal.
         private const val SIGNAL_FRESH_MS = 12_000L
-        // Consecutive misses before we stop coasting and show "waiting".
-        private const val SIGNAL_MISS_THRESHOLD = 3
-        // Consecutive misses before we give up and stop auto mode (~2 min at the
-        // wait-poll cadence below).
-        private const val SIGNAL_GIVE_UP_MISSES = 24
+        // How long the signal can stay gone before we give up and stop auto mode.
+        private const val SIGNAL_GIVE_UP_MS = 120_000L
         // Poll cadence while waiting for the signal to return.
         private const val SIGNAL_WAIT_INTERVAL_MS = 5_000L
         private const val RECENT_LIMIT = 50
@@ -484,4 +498,13 @@ class AutoModeService : Service() {
         private const val PATH_NOW_PLAYING = "/now_playing"
         private const val TAG = "AutoModeService"
     }
+}
+
+/** Result of classifying the current watch signal each loop iteration. */
+private sealed interface SignalStatus {
+    /** A fresh reading is available; [bpm] is the value to match against. */
+    data class Live(val bpm: Int) : SignalStatus
+
+    /** No usable signal; [lostMs] is how long it has been gone. */
+    data class Lost(val lostMs: Long) : SignalStatus
 }
