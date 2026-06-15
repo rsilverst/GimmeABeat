@@ -25,6 +25,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -137,8 +138,10 @@ class AutoModeService : Service() {
 
     private fun sendWatchCommand(path: String, payload: ByteArray = ByteArray(0)) {
         // Fire-and-forget, but the send itself retries with backoff and records
-        // dropouts (see WearMessenger).
-        scope.launch { WearMessenger.send(applicationContext, path, payload) }
+        // dropouts (see WearMessenger). Runs on the process-lifetime
+        // [watchSendScope] so the teardown stop-tracking command still lands
+        // even though onDestroy cancels the session [scope].
+        watchSendScope.launch { WearMessenger.send(applicationContext, path, payload) }
     }
 
     /**
@@ -500,13 +503,23 @@ class AutoModeService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
-        loopJob?.cancel()
+        // Cancels the loop and any session-scoped children; watchSendScope is
+        // process-lifetime and intentionally survives so in-flight watch sends
+        // (e.g. stop-tracking) complete.
+        scope.cancel()
         localSpotify.disconnect()
         authService.dispose()
         super.onDestroy()
     }
 
     companion object {
+        // Process-lifetime scope for best-effort watch sends that must outlive a
+        // single service instance — notably the stop-tracking command fired
+        // during teardown, which would otherwise be cut off when onDestroy
+        // cancels the session scope. Holds no long-running work, only transient
+        // sends, so it isn't a leak.
+        private val watchSendScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
         const val ACTION_STOP = "com.rsilverst.gimmeabeat.action.STOP_AUTO"
         const val ACTION_RESYNC = "com.rsilverst.gimmeabeat.action.RESYNC_WATCH"
         private const val CHANNEL_ID = "auto_mode"
