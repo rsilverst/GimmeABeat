@@ -11,6 +11,12 @@ import retrofit2.converter.moshi.MoshiConverterFactory
 
 private const val TAG = "GetSongBpmClient"
 
+// Hard upper bound on cached per-BPM results. In practice keys are integer BPMs
+// the caller already coerces to ~[35,225] (≈190 possible keys), so this rarely
+// evicts — it's a safety net against ever caching an un-coerced value, not a
+// response to real growth.
+private const val MAX_CACHE_ENTRIES = 256
+
 class GetSongBpmClient {
 
     private val moshi: Moshi = Moshi.Builder()
@@ -30,8 +36,20 @@ class GetSongBpmClient {
         .build()
         .create(GetSongBpmApi::class.java)
 
-    /** Cache key: single BPM value (genre filtering is applied client-side after lookup). */
-    private val perBpmCache = java.util.concurrent.ConcurrentHashMap<Int, List<BpmCandidate>>()
+    /**
+     * Cache key: single BPM value (genre filtering is applied client-side after
+     * lookup, and tolerance only widens the *range* of BPMs queried — each BPM
+     * is fetched and cached independently — so neither belongs in the key).
+     * Bounded, access-ordered LRU; access is serialized via [synchronizedMap].
+     */
+    private val perBpmCache: MutableMap<Int, List<BpmCandidate>> =
+        java.util.Collections.synchronizedMap(
+            object : LinkedHashMap<Int, List<BpmCandidate>>(16, 0.75f, true) {
+                override fun removeEldestEntry(
+                    eldest: MutableMap.MutableEntry<Int, List<BpmCandidate>>,
+                ): Boolean = size > MAX_CACHE_ENTRIES
+            }
+        )
 
     /**
      * Returns candidates near [targetBpm], optionally filtered to artists whose
