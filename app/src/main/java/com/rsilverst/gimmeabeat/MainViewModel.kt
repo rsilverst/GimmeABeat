@@ -175,6 +175,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         appContext.startService(intent)
     }
 
+    /** Re-poke the watch when the Home signal indicator shows it's absent. */
+    fun retrySync() {
+        val intent = Intent(appContext, AutoModeService::class.java).apply {
+            action = AutoModeService.ACTION_RESYNC
+        }
+        appContext.startService(intent)
+    }
+
     fun signOut() {
         stopAuto()
         authRepo.signOut()

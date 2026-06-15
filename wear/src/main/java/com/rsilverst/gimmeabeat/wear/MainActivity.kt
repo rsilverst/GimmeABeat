@@ -21,6 +21,7 @@ import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import com.rsilverst.gimmeabeat.wear.ui.HeartRateScreen
 import com.rsilverst.gimmeabeat.wear.ui.theme.GimmeABeatWearTheme
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
 
@@ -49,8 +50,21 @@ class MainActivity : ComponentActivity() {
                 val sourceKey by WatchTrackingState.signalSourceKey.collectAsState()
                 val status by WatchTrackingState.status.collectAsState()
                 val nowPlaying by WatchTrackingState.nowPlaying.collectAsState()
+                val lastReadingAtMs by WatchTrackingState.lastReadingAtMs.collectAsState()
                 val granted by remember { permissionsGranted }
                 val cadenceMode = sourceKey == "cadence"
+
+                // Re-evaluate freshness on a ticker so the cue appears even when
+                // readings simply stop arriving (sensor off-wrist / throttled).
+                var nowMs by remember { mutableStateOf(System.currentTimeMillis()) }
+                LaunchedEffect(tracking) {
+                    while (tracking) {
+                        nowMs = System.currentTimeMillis()
+                        delay(SIGNAL_TICK_MS)
+                    }
+                }
+                val signalStale = tracking &&
+                    (lastReadingAtMs == null || nowMs - lastReadingAtMs!! > SIGNAL_STALE_MS)
                 // Samsung One UI Watch pauses Health Services sensor delivery the
                 // moment the display drops to ambient/dim. Keep the screen
                 // interactive while a workout is active so HR/cadence keep
@@ -68,6 +82,7 @@ class MainActivity : ComponentActivity() {
                     signalValue = if (cadenceMode) cadence else hr,
                     signalLabel = if (cadenceMode) "Cadence" else "Heart rate",
                     signalUnit = if (cadenceMode) "spm" else "bpm",
+                    signalStale = signalStale,
                     status = status,
                     nowPlaying = nowPlaying,
                     permissionsGranted = granted,
@@ -160,6 +175,10 @@ class MainActivity : ComponentActivity() {
             Manifest.permission.ACTIVITY_RECOGNITION,
             "android.permission.health.READ_HEART_RATE",
         )
+
+        // Readings older than this (while tracking) flag the signal as stale.
+        private const val SIGNAL_STALE_MS = 10_000L
+        private const val SIGNAL_TICK_MS = 2_000L
 
         private const val TAG = "WearMainActivity"
         private const val PREFS_FILE = "watch_prefs"

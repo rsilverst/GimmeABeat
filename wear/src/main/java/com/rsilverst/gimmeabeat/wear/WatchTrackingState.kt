@@ -19,6 +19,10 @@ object WatchTrackingState {
     private val _cadence = MutableStateFlow<Int?>(null)
     val cadence: StateFlow<Int?> = _cadence.asStateFlow()
 
+    /** Wall-clock time of the last non-null reading, for staleness detection. */
+    private val _lastReadingAtMs = MutableStateFlow<Long?>(null)
+    val lastReadingAtMs: StateFlow<Long?> = _lastReadingAtMs.asStateFlow()
+
     private val _status = MutableStateFlow<String?>(null)
     val status: StateFlow<String?> = _status.asStateFlow()
 
@@ -30,8 +34,14 @@ object WatchTrackingState {
     val signalSourceKey: StateFlow<String> = _signalSourceKey.asStateFlow()
 
     fun setTracking(value: Boolean) { _tracking.value = value }
-    fun setHeartRate(bpm: Int?) { _heartRate.value = bpm }
-    fun setCadence(spm: Int?) { _cadence.value = spm }
+    fun setHeartRate(bpm: Int?) {
+        _heartRate.value = bpm
+        if (bpm != null) _lastReadingAtMs.value = System.currentTimeMillis()
+    }
+    fun setCadence(spm: Int?) {
+        _cadence.value = spm
+        if (spm != null) _lastReadingAtMs.value = System.currentTimeMillis()
+    }
     fun setStatus(text: String?) { _status.value = text }
     fun setNowPlaying(text: String?) { _nowPlaying.value = text }
     fun setSignalSourceKey(key: String) { _signalSourceKey.value = key }
@@ -40,6 +50,7 @@ object WatchTrackingState {
         _tracking.value = false
         _heartRate.value = null
         _cadence.value = null
+        _lastReadingAtMs.value = null
         _status.value = null
         _nowPlaying.value = null
         // keep _signalSourceKey — it's a UI preference, not session data

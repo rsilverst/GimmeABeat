@@ -27,6 +27,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,6 +54,7 @@ fun HomeScreen(
     autoStatus: String?,
     onConnectSpotify: () -> Unit,
     onToggleAuto: () -> Unit,
+    onRetrySync: () -> Unit,
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -76,6 +78,7 @@ fun HomeScreen(
             value = signalValue,
             targetBpm = targetBpm,
             health = signalHealth,
+            onRetrySync = onRetrySync,
         )
         Spacer(Modifier.height(20.dp))
         NowPlayingCard(nowPlaying = nowPlaying)
@@ -120,6 +123,7 @@ private fun SignalHero(
     value: Int?,
     targetBpm: Int?,
     health: SignalHealth?,
+    onRetrySync: () -> Unit,
 ) {
     val unit = when (source) {
         SignalSource.HeartRate -> "bpm"
@@ -138,6 +142,9 @@ private fun SignalHero(
         if (health != null) {
             Spacer(Modifier.height(6.dp))
             SignalHealthChip(health)
+            if (health == SignalHealth.ABSENT) {
+                TextButton(onClick = onRetrySync) { Text("Retry sync") }
+            }
         }
         Spacer(Modifier.height(4.dp))
         Row(verticalAlignment = Alignment.Bottom) {

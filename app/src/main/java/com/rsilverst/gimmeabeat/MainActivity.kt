@@ -143,6 +143,7 @@ private fun AppRoot(
                 onToggleAuto = {
                     if (autoActive) viewModel.stopAuto() else onStartAuto()
                 },
+                onRetrySync = viewModel::retrySync,
                 onOpenSettings = { screen = Screen.Settings },
                 modifier = Modifier,
             )

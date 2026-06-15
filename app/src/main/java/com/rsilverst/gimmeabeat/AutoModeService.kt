@@ -71,6 +71,10 @@ class AutoModeService : Service() {
                 stopAuto()
                 return START_NOT_STICKY
             }
+            ACTION_RESYNC -> {
+                resyncWatch()
+                return START_STICKY
+            }
             else -> {
                 startAsForeground("Starting auto mode…")
                 startAuto()
@@ -135,6 +139,22 @@ class AutoModeService : Service() {
         // Fire-and-forget, but the send itself retries with backoff and records
         // dropouts (see WearMessenger).
         scope.launch { WearMessenger.send(applicationContext, path, payload) }
+    }
+
+    /**
+     * Re-poke the watch when the user taps "Retry sync" — re-sends the
+     * start-tracking command and the current signal source, in case the watch
+     * missed them or its exercise service stopped. Same sends [startAuto] makes.
+     */
+    private fun resyncWatch() {
+        updateUiStatus("Re-syncing with watch…")
+        sendWatchCommand(PATH_START_TRACKING)
+        scope.launch {
+            WatchSync.sendSignalSource(
+                applicationContext,
+                Preferences.currentSignalSource(applicationContext),
+            )
+        }
     }
 
     private suspend fun runLoop() {
@@ -488,6 +508,7 @@ class AutoModeService : Service() {
 
     companion object {
         const val ACTION_STOP = "com.rsilverst.gimmeabeat.action.STOP_AUTO"
+        const val ACTION_RESYNC = "com.rsilverst.gimmeabeat.action.RESYNC_WATCH"
         private const val CHANNEL_ID = "auto_mode"
         private const val NOTIF_ID = 1001
         private const val POLL_INTERVAL_MS = 5_000L

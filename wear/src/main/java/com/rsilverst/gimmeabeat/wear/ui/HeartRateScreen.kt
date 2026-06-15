@@ -25,6 +25,7 @@ fun HeartRateScreen(
     signalValue: Int?,
     signalLabel: String,
     signalUnit: String,
+    signalStale: Boolean,
     status: String?,
     nowPlaying: String?,
     permissionsGranted: Boolean,
@@ -79,13 +80,28 @@ fun HeartRateScreen(
                     text = signalValue?.toString() ?: "—",
                     fontSize = 48.sp,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colors.primary,
+                    // Dim the (now stale) value when the signal has dropped.
+                    color = if (signalStale) {
+                        MaterialTheme.colors.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colors.primary
+                    },
                 )
-                Text(
-                    text = signalUnit,
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colors.onBackground,
-                )
+                if (signalStale) {
+                    Text(
+                        text = "⚠ Signal lost",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colors.error,
+                        textAlign = TextAlign.Center,
+                    )
+                } else {
+                    Text(
+                        text = signalUnit,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colors.onBackground,
+                    )
+                }
                 nowPlaying?.let {
                     Text(
                         text = it,
