@@ -548,4 +548,19 @@ internal object SignalFreshness {
     /** True once the signal has been gone at least [giveUpAfterMs]. */
     fun shouldGiveUp(lostMs: Long, giveUpAfterMs: Long): Boolean =
         lostMs >= giveUpAfterMs
+
+    /**
+     * Coarse health bucket for the Home indicator: [SignalHealth.LIVE] within
+     * [freshThresholdMs], [SignalHealth.DELAYED] up to [absentThresholdMs], and
+     * [SignalHealth.ABSENT] beyond that or with no reading ([ageMs] null).
+     */
+    fun health(ageMs: Long?, freshThresholdMs: Long, absentThresholdMs: Long): SignalHealth =
+        when {
+            ageMs == null || ageMs > absentThresholdMs -> SignalHealth.ABSENT
+            ageMs <= freshThresholdMs -> SignalHealth.LIVE
+            else -> SignalHealth.DELAYED
+        }
 }
+
+/** Coarse watch-signal health shown on the Home screen. */
+enum class SignalHealth { LIVE, DELAYED, ABSENT }

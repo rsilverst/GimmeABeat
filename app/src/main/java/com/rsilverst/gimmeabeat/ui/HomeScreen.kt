@@ -31,18 +31,21 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.rsilverst.gimmeabeat.NowPlaying
+import com.rsilverst.gimmeabeat.SignalHealth
 import com.rsilverst.gimmeabeat.SignalSource
 
 @Composable
 fun HomeScreen(
     signalSource: SignalSource,
     signalValue: Int?,
+    signalHealth: SignalHealth?,
     targetBpm: Int?,
     isAuthorized: Boolean,
     autoActive: Boolean,
@@ -68,7 +71,12 @@ fun HomeScreen(
             return@Column
         }
 
-        SignalHero(source = signalSource, value = signalValue, targetBpm = targetBpm)
+        SignalHero(
+            source = signalSource,
+            value = signalValue,
+            targetBpm = targetBpm,
+            health = signalHealth,
+        )
         Spacer(Modifier.height(20.dp))
         NowPlayingCard(nowPlaying = nowPlaying)
         Spacer(Modifier.weight(1f))
@@ -107,7 +115,12 @@ private fun TopBar(onOpenSettings: () -> Unit) {
 }
 
 @Composable
-private fun SignalHero(source: SignalSource, value: Int?, targetBpm: Int?) {
+private fun SignalHero(
+    source: SignalSource,
+    value: Int?,
+    targetBpm: Int?,
+    health: SignalHealth?,
+) {
     val unit = when (source) {
         SignalSource.HeartRate -> "bpm"
         SignalSource.Cadence -> "spm"
@@ -122,6 +135,10 @@ private fun SignalHero(source: SignalSource, value: Int?, targetBpm: Int?) {
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        if (health != null) {
+            Spacer(Modifier.height(6.dp))
+            SignalHealthChip(health)
+        }
         Spacer(Modifier.height(4.dp))
         Row(verticalAlignment = Alignment.Bottom) {
             Text(
@@ -144,6 +161,29 @@ private fun SignalHero(source: SignalSource, value: Int?, targetBpm: Int?) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+@Composable
+private fun SignalHealthChip(health: SignalHealth) {
+    val (dotColor, label) = when (health) {
+        SignalHealth.LIVE -> Color(0xFF35C759) to "Watch live"
+        SignalHealth.DELAYED -> Color(0xFFFFB300) to "Signal delayed"
+        SignalHealth.ABSENT -> MaterialTheme.colorScheme.error to "Waiting for watch…"
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .clip(CircleShape)
+                .background(dotColor),
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

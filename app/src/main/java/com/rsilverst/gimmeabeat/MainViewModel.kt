@@ -13,10 +13,14 @@ import com.rsilverst.gimmeabeat.spotify.PlayResult
 import com.rsilverst.gimmeabeat.spotify.SpotifyAuthRepository
 import com.rsilverst.gimmeabeat.spotify.SpotifyClient
 import com.rsilverst.gimmeabeat.spotify.SpotifyUser
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import net.openid.appauth.AuthorizationException
@@ -63,6 +67,21 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             SharingStarted.Eagerly,
             SignalSource.HeartRate,
         )
+
+    /**
+     * Coarse health of the active watch signal for the Home indicator. Driven by
+     * a ticker as well as the source so it flips to delayed/absent even when
+     * readings simply stop arriving (a frozen relay flow never re-emits).
+     */
+    val signalHealth: StateFlow<SignalHealth> =
+        combine(signalSource, tickerFlow(FRESHNESS_TICK_MS)) { source, _ ->
+            val receivedAtMs = when (source) {
+                SignalSource.HeartRate -> HeartRateRelay.heartRate.value?.receivedAtMs
+                SignalSource.Cadence -> CadenceRelay.cadence.value?.receivedAtMs
+            }
+            val ageMs = receivedAtMs?.let { System.currentTimeMillis() - it }
+            SignalFreshness.health(ageMs, SIGNAL_FRESH_MS, SIGNAL_ABSENT_MS)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SignalHealth.ABSENT)
 
     /** Auto state lives in [AutoModeState] singleton so the service is the writer. */
     val autoActive: StateFlow<Boolean> = AutoModeState.active
@@ -178,12 +197,25 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Emits [Unit] every [periodMs] so time-based UI state (signal freshness)
+     *  can re-evaluate even when no new reading arrives. */
+    private fun tickerFlow(periodMs: Long): Flow<Unit> = flow {
+        while (true) {
+            emit(Unit)
+            delay(periodMs)
+        }
+    }
+
     override fun onCleared() {
         authService.dispose()
         super.onCleared()
     }
 
     companion object {
+        private const val SIGNAL_FRESH_MS = 12_000L
+        private const val SIGNAL_ABSENT_MS = 30_000L
+        private const val FRESHNESS_TICK_MS = 1_000L
+
         val Factory = viewModelFactory {
             initializer {
                 MainViewModel(

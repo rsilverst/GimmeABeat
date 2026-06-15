@@ -97,6 +97,7 @@ private fun AppRoot(
     val multiplier by viewModel.multiplier.collectAsStateWithLifecycle()
     val selectedGenre by viewModel.selectedGenre.collectAsStateWithLifecycle()
     val signalSource by viewModel.signalSource.collectAsStateWithLifecycle()
+    val signalHealth by viewModel.signalHealth.collectAsStateWithLifecycle()
     val autoActive by viewModel.autoActive.collectAsStateWithLifecycle()
     val autoStatus by viewModel.autoStatus.collectAsStateWithLifecycle()
     val nowPlaying by viewModel.nowPlaying.collectAsStateWithLifecycle()
@@ -130,6 +131,9 @@ private fun AppRoot(
             Screen.Home -> HomeScreen(
                 signalSource = signalSource,
                 signalValue = signalValueForUi,
+                // Only meaningful while a session is running — otherwise no
+                // signal is expected and a warning dot would be misleading.
+                signalHealth = if (autoActive) signalHealth else null,
                 targetBpm = targetForUi,
                 isAuthorized = isAuthorized,
                 autoActive = autoActive,

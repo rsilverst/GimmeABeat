@@ -95,4 +95,39 @@ class SignalFreshnessTest {
     fun `gives up past the window`() {
         assertTrue(SignalFreshness.shouldGiveUp(lostMs = giveUp + 5_000, giveUpAfterMs = giveUp))
     }
+
+    private val absent = 30_000L   // SIGNAL_ABSENT_MS
+
+    private fun health(ageMs: Long?) =
+        SignalFreshness.health(ageMs, freshThresholdMs = fresh, absentThresholdMs = absent)
+
+    @Test
+    fun `recent reading is live`() {
+        assertEquals(SignalHealth.LIVE, health(3_000))
+    }
+
+    @Test
+    fun `age at the fresh boundary is live`() {
+        assertEquals(SignalHealth.LIVE, health(fresh))
+    }
+
+    @Test
+    fun `just past fresh is delayed`() {
+        assertEquals(SignalHealth.DELAYED, health(fresh + 1))
+    }
+
+    @Test
+    fun `age at the absent boundary is still only delayed`() {
+        assertEquals(SignalHealth.DELAYED, health(absent))
+    }
+
+    @Test
+    fun `past the absent threshold is absent`() {
+        assertEquals(SignalHealth.ABSENT, health(absent + 1))
+    }
+
+    @Test
+    fun `no reading is absent`() {
+        assertEquals(SignalHealth.ABSENT, health(null))
+    }
 }
